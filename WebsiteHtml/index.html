@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>ATHERIUM / .ath</title>
+  <link rel="icon" type="image/png" href="assets/atherium-logo.png">
+  <script>
+    (function(){try{var t=localStorage.getItem('ath_theme')||'auto';var d=t==='dark'||(t==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',t);document.documentElement.className=d?'theme-dark':'theme-light';document.documentElement.style.colorScheme=d?'dark':'light';document.documentElement.style.backgroundColor=d?'#0b0b0e':'#f4f5f7';}catch(_){}})();
+  </script>
+  <style>
+    html,body{margin:0;background-color:#0b0b0e;color:#e2e2e8;color-scheme:dark;}
+    @media (prefers-color-scheme: light){html:not([data-theme="dark"]),html:not([data-theme="dark"]) body{background-color:#f4f5f7;color:#24292f;color-scheme:light;}}
+    html[data-theme="dark"],html[data-theme="dark"] body{background-color:#0b0b0e !important;color:#e2e2e8 !important;color-scheme:dark !important;}
+    html[data-theme="light"],html[data-theme="light"] body{background-color:#f4f5f7 !important;color:#24292f !important;color-scheme:light !important;}
+  </style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <div class="logo-cell"><img src="assets/atherium-logo.png" alt="Atherium logo"></div>
+    <div class="title-cell">
+      <h1 class="brand">ATHERIUM / .ath</h1>
+      <p class="sub">Lightweight statically typed language &nbsp;|&nbsp; <a href="https://github.com/Deadstillplays/Atherium">Atherium</a> &nbsp;&middot;&nbsp; <a href="https://github.com/Deadstillplays/AtheriumStudio">AtheriumStudio</a></p>
+      <nav class="nav">
+        <a href="#intro">&gt;Introduction</a>
+        <a href="#performance">&gt;Performance</a>
+        <a href="#install">&gt;Installation</a>
+        <a href="#studio">&gt;Atherium Studio</a>
+        <a href="libraries.html">&gt;Libraries &amp; Plugins</a>
+        <a href="#license">&gt;TOS / Licence</a>
+      </nav>
+    </div>
+    <div class="cross-cell"><img src="assets/cross.png" alt="Cross"></div>
+  </header>
+  <hr class="ascii-rule">
+  <div class="top-meta-bar">
+    <div id="gh-sync-bar"><span class="sync-dot"></span> Connecting to GitHub (Deadstillplays/Atherium &amp; AtheriumStudio)...</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="setup-jump"><a href="#studio">&gt;Download Studio</a> &nbsp;|&nbsp; <a href="#install">&gt;Click here to setup</a></div>
+      <button type="button" id="theme-toggle-btn" class="theme-btn" title="Toggle theme (Auto / Dark / Light)"><span id="theme-icon">🌙</span> <span id="theme-label">Auto</span></button>
+    </div>
+  </div>
+  <section id="intro" class="sec">
+    <h2 class="center">Introduction</h2>
+    <p class="lead">Atherium is a lightweight coding language built bottom-up from a hand-designed binary ISA. Source files (<code>.ath</code> / <code>.athlib</code>) compile to readable assembly (<code>.athasm</code>) and compact bytecode (<code>.athbin</code>), executed by a sandboxed W^X x86-64 VM JIT or compiled straight into standalone zero-libc Linux ELF64 binaries — with zero external dependencies.</p>
+    <div class="ftypes">
+      <div class="ftype"><img src="assets/atherium-logo.png" alt=".ath"><div><span class="ext">.ath</span><span class="desc">Source program</span></div></div>
+      <div class="ftype"><img src="assets/Atheriumlib.png" alt=".athlib"><div><span class="ext">.athlib</span><span class="desc">Library module</span></div></div>
+      <div class="ftype"><img src="assets/Atheriumasm.png" alt=".athasm"><div><span class="ext">.athasm</span><span class="desc">Assembly listing</span></div></div>
+      <div class="ftype"><img src="assets/Atheriumbin.png" alt=".athbin"><div><span class="ext">.athbin</span><span class="desc">Bytecode image</span></div></div>
+    </div>
+    <p><strong>&gt;Language repo &amp; full docs:</strong> <a href="https://github.com/Deadstillplays/Atherium">https://github.com/Deadstillplays/Atherium</a> &nbsp;|&nbsp; <a href="https://github.com/Deadstillplays/Atherium/blob/main/LANGUAGE.md">LANGUAGE.md -&gt;</a></p>
+    <p><strong>&gt;Atherium Studio repo:</strong> <a href="https://github.com/Deadstillplays/AtheriumStudio">https://github.com/Deadstillplays/AtheriumStudio</a></p>
+  </section>
+  <hr class="ascii-rule">
+  <section id="performance" class="sec">
+    <h2 class="center">Performance Notices</h2>
+    <div class="perf-box">
+      <div class="perf-gif-wrap"><img src="assets/loading_animation.gif" alt="Atherium execution engine animation"></div>
+      <ul class="perf-list">
+        <li><strong>&gt; Sandboxed W^X x86-64 VM JIT (default):</strong> Translates <code>.athbin</code> bytecode directly to native x86-64 code in-process with millisecond startup. Force the portable threaded interpreter with <code>ATH_VM_NO_JIT=1</code> or reference stepping with <code>ATH_VM_REF=1</code>.</li>
+        <li><strong>&gt; Zero-Libc Standalone Native AOT:</strong> <code>atherium native</code> compiles <code>.ath</code> straight to a standalone Linux x86-64 ELF64 binary with an embedded freestanding runtime — no external linker, no libc, no runtime overhead.</li>
+        <li><strong>&gt; Configurable Flat Guest RAM:</strong> Defaults to <code>64M</code> sandboxed memory; tune per program with <code>--mem 64K</code> up to <code>--mem 6GiB</code>. All compiler, JIT, and native optimizations are 100% general-purpose.</li>
+        <li><strong>&gt; Atherium Studio Startup Notice:</strong> The Linux <code>.AppImage</code> executes native zero-libc ELF64 directly (~1–2 ms run times). The Windows <code>.exe</code> unpacks its bundled stdlib &amp; compiler sources once to <code>%TEMP%/AtheriumStudio</code> on first launch.</li>
+      </ul>
+    </div>
+  </section>
+  <hr class="ascii-rule">
+  <section id="install" class="sec" style="padding-top:0;">
+    <div class="install-wrap"><div class="install-box"><h2>Installation &amp; how to use</h2><span class="smile">\ :)</span></div></div>
+    <div class="subhead-row">
+      <h3 class="subhead">&gt;Main setup files</h3>
+      <a href="https://github.com/Deadstillplays/Atherium">[ Clone / Download from GitHub -&gt; ]</a>
+    </div>
+    <pre class="codebox" data-copy="sh">$ git clone https://github.com/Deadstillplays/Atherium.git
+$ cd Atherium &amp;&amp; make                       # builds ./build/atherium (gcc or clang)
+$ ./build/atherium run hello.ath            # run on W^X x86-64 VM JIT
+$ ./build/atherium native hello.ath -o app  # compile standalone zero-libc ELF64
+$ ./scripts/install_ath_icon.sh             # register .ath/.athlib/.athasm/.athbin icons</pre>
+    <div class="subhead-row">
+      <h3 class="subhead">&gt;Current Libraries</h3>
+      <a href="libraries.html"><strong>Open Libraries, Plugins &amp; Themes catalog -&gt;</strong></a>
+    </div>
+    <p style="color:#9a9a9a;">Standard libraries in <code>lib/</code> (auto-synced from GitHub): <span id="inline-libs"><a href="libs/algo.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/algo.athlib" data-filename="algo.athlib" download>algo</a> &nbsp;|&nbsp; <a href="libs/alloc.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/alloc.athlib" data-filename="alloc.athlib" download>alloc</a> &nbsp;|&nbsp; <a href="libs/iostream.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/iostream.athlib" data-filename="iostream.athlib" download>iostream</a> &nbsp;|&nbsp; <a href="libs/math.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/math.athlib" data-filename="math.athlib" download>math</a> &nbsp;|&nbsp; <a href="libs/render.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/render.athlib" data-filename="render.athlib" download>render</a> &nbsp;|&nbsp; <a href="libs/str.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/str.athlib" data-filename="str.athlib" download>str</a></span><br>Download any <code>.athlib</code> directly from the <a href="libraries.html">Libraries page</a> or browse them on <a href="https://github.com/Deadstillplays/Atherium/tree/main/lib">GitHub</a>.</p>
+    <div id="studio" class="studio-box">
+      <img src="assets/atherium-studio-logo.png" alt="Atherium Studio logo">
+      <div class="studio-body">
+        <h3>&gt;Code editor (Atherium Studio)</h3>
+        <p>Fast, bare-minimum native borderless desktop IDE written 100% in pure Atherium — featuring Luau-style predictive autocomplete, extensible <code>.athplugin</code> language plugins, interactive selectable terminal, custom <code>.aththeme</code> themes, native OS file dialogs, and 1-click import of the full Atherium compiler source into any project.</p>
+        <div class="btn-row">
+          <a id="dl-studio-linux" class="btn" href="https://github.com/Deadstillplays/AtheriumStudio/raw/main/AtheriumStudio-x86_64.AppImage" download="AtheriumStudio-x86_64.AppImage">Linux (.AppImage)</a>
+          <a id="dl-studio-win" class="btn" href="https://github.com/Deadstillplays/AtheriumStudio/raw/main/AtheriumStudio-x86_64.exe" download="AtheriumStudio-x86_64.exe">Windows (.exe)</a>
+          <a class="btn dim" href="bundles/atherium-plugins-bundle.zip" download="atherium-plugins-bundle.zip">Plugins Bundle (.zip)</a>
+          <a class="btn dim" href="libraries.html#plugins">Search Plugins &amp; Themes -&gt;</a>
+          <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio">GitHub Repo -&gt;</a>
+        </div>
+        <div id="studio-live-meta" class="studio-meta">Downloads always pull the latest build from <a href="https://github.com/Deadstillplays/AtheriumStudio">github.com/Deadstillplays/AtheriumStudio</a>.</div>
+        <pre class="codebox" data-copy="sh" style="margin-top:8px;margin-bottom:0;font-size:13px;">$ chmod +x AtheriumStudio-x86_64.AppImage &amp;&amp; ./AtheriumStudio-x86_64.AppImage  # Linux
+$ AtheriumStudio-x86_64.exe                                                    # Windows</pre>
+      </div>
+    </div>
+  </section>
+  <hr class="ascii-rule">
+  <section id="license" class="sec">
+    <h2 class="center">TOS / Licence</h2>
+    <p style="text-align:center;color:#9a9a9a;margin-top:-12px;">Atherium Source-Available License &mdash; Copyright (c) 2026 deadstillplays</p>
+    <ul class="terms">
+      <li><strong>&gt; Free to use &amp; customize</strong> Use, study, modify, fork, and redistribute source and binaries.</li>
+      <li><strong>&gt; Attribution required</strong> Keep the copyright notice and credit Atherium / deadstillplays.</li>
+      <li><strong>&gt; No selling</strong> Do not sell Atherium or modified versions for fiat or digital currency.</li>
+      <li><strong>&gt; Commercial &gt;$20,000 USD</strong> Entities above $20k gross annual revenue require written permission.</li>
+    </ul>
+    <p>Full license: <a href="license.html">read locally</a> &nbsp;|&nbsp; <a href="https://github.com/Deadstillplays/Atherium/blob/main/LICENSE">view on GitHub</a></p>
+  </section>
+  <hr class="ascii-rule dim">
+  <footer>
+    <div class="foot-left"><img src="assets/atherium-logo.png" alt="Atherium"><span>ATHERIUM / .ath &mdash; Copyright (c) 2026 deadstillplays &mdash; Built in Atherium</span></div>
+    <div><a href="https://github.com/Deadstillplays/Atherium">Atherium</a> &nbsp;|&nbsp; <a href="https://github.com/Deadstillplays/AtheriumStudio">AtheriumStudio</a></div>
+  </footer>
+</div>
+<script src="github-sync.js" defer></script>
+</body>
+</html>
