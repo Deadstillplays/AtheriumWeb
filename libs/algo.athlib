@@ -1,0 +1,91 @@
+// algo.athlib — scalable sorting, binary search, and 64-bit hashing over guest memory
+
+fn hash64_bytes(addr: int, nbytes: int) -> int {
+    let h: int = 0xCBF29CE484222325;
+    let i: int = 0;
+    while (i + 8 <= nbytes) {
+        let w: int = load64(addr + i);
+        h = (h ^ w) * 0x100000001B3;
+        i = i + 8;
+    }
+    while (i < nbytes) {
+        h = (h ^ load8(addr + i)) * 0x100000001B3;
+        i = i + 1;
+    }
+    return h;
+}
+
+fn bsearch64(arr: int, n: int, target: int) -> int {
+    let lo: int = 0;
+    let hi: int = n - 1;
+    while (lo <= hi) {
+        let mid: int = lo + ((hi - lo) >> 1);
+        let v: int = load64(arr + mid * 8);
+        if (v == target) {
+            return mid;
+        }
+        if (v < target) {
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    return -1;
+}
+
+// In-place O(N log N) worst-case iterative heapsort over int64 array at `arr`.
+fn heapsort64(arr: int, n: int) {
+    if (n <= 1) {
+        return;
+    }
+    let start: int = n >> 1;
+    while (start > 0) {
+        start = start - 1;
+        let root: int = start;
+        let rv: int = load64(arr + root * 8);
+        while (root * 2 + 1 < n) {
+            let child: int = root * 2 + 1;
+            let cv: int = load64(arr + child * 8);
+            if (child + 1 < n) {
+                let cv2: int = load64(arr + (child + 1) * 8);
+                if (cv2 > cv) {
+                    child = child + 1;
+                    cv = cv2;
+                }
+            }
+            if (rv < cv) {
+                store64(arr + root * 8, cv);
+                root = child;
+            } else {
+                break;
+            }
+        }
+        store64(arr + root * 8, rv);
+    }
+    let end: int = n - 1;
+    while (end > 0) {
+        let top: int = load64(arr);
+        let last: int = load64(arr + end * 8);
+        store64(arr + end * 8, top);
+        let root: int = 0;
+        while (root * 2 + 1 < end) {
+            let child: int = root * 2 + 1;
+            let cv: int = load64(arr + child * 8);
+            if (child + 1 < end) {
+                let cv2: int = load64(arr + (child + 1) * 8);
+                if (cv2 > cv) {
+                    child = child + 1;
+                    cv = cv2;
+                }
+            }
+            if (last < cv) {
+                store64(arr + root * 8, cv);
+                root = child;
+            } else {
+                break;
+            }
+        }
+        store64(arr + root * 8, last);
+        end = end - 1;
+    }
+}

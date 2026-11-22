@@ -1,0 +1,949 @@
+// website/build.ath — Pure-Atherium static site generator for ATHERIUM / .ath
+// Generates monochrome HTML + CSS + GitHub live auto-sync JS + local mirrors for
+// .athlib libraries, .athplugin language packs, .aththeme themes, and Studio downloads.
+// Run: ./Atherium/build/atherium run --allow-io --mem 32M --lib Atherium/lib --lib website/lib website/build.ath
+
+use alloc;
+use html;
+
+const REPO_URL: str        = "https://github.com/Deadstillplays/Atherium";
+const STUDIO_REPO_URL: str = "https://github.com/Deadstillplays/AtheriumStudio";
+const STUDIO_APPIMAGE: str = "https://github.com/Deadstillplays/AtheriumStudio/raw/main/AtheriumStudio-x86_64.AppImage";
+const STUDIO_EXE: str      = "https://github.com/Deadstillplays/AtheriumStudio/raw/main/AtheriumStudio-x86_64.exe";
+const RAW_ATH_BASE: str    = "https://raw.githubusercontent.com/Deadstillplays/Atherium/main/";
+const RAW_STU_BASE: str    = "https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/";
+
+fn str_addr(s: int) -> int { return s; }
+
+fn ends_with_ext(ptr: int, n: int, ext: str) -> int {
+    let el: int = str_len(ext);
+    if (n < el) { return 0; }
+    let ep: int = str_addr(ext);
+    for (let i: int = 0; i < el; i += 1) {
+        if (load8(ptr + n - el + i) != load8(ep + i)) { return 0; }
+    }
+    return 1;
+}
+
+fn count_fns(buf: int, n: int) -> int {
+    let cnt: int = 0;
+    let at_sol: int = 1;
+    for (let i: int = 0; i < n; i += 1) {
+        let c: int = load8(buf + i);
+        if (at_sol && i + 2 < n && c == 102 && load8(buf + i + 1) == 110 && load8(buf + i + 2) == 32) {
+            cnt += 1;
+        }
+        if (c == 10) { at_sol = 1; } else { at_sol = 0; }
+    }
+    return cnt;
+}
+
+// Extract description from first line `// name.athlib — <desc>`
+fn emit_lib_desc(ob: int, buf: int, n: int) {
+    let eol: int = 0;
+    while (eol < n && load8(buf + eol) != 10 && load8(buf + eol) != 13) {
+        eol += 1;
+    }
+    if (eol < 3 || load8(buf) != 47 || load8(buf + 1) != 47) {
+        ob_s(ob, "Pure-Atherium standard library module");
+        return;
+    }
+    let start: int = 2;
+    while (start < eol && load8(buf + start) == 32) { start += 1; }
+    for (let i: int = start; i + 2 < eol; i += 1) {
+        if (load8(buf + i) == 226 && load8(buf + i + 1) == 128 && load8(buf + i + 2) == 148) {
+            start = i + 3;
+            while (start < eol && load8(buf + start) == 32) { start += 1; }
+            break;
+        }
+    }
+    if (start < eol) {
+        ob_esc_raw(ob, buf + start, eol - start);
+    } else {
+        ob_s(ob, "Pure-Atherium standard library module");
+    }
+}
+
+// Extract `key=value` from an ini-style .athplugin / .aththeme buffer into ob
+fn emit_kv_field(ob: int, buf: int, n: int, key: str, fallback: str) -> int {
+    let kl: int = str_len(key);
+    let kp: int = str_addr(key);
+    let pos: int = 0;
+    while (pos < n) {
+        let eol: int = pos;
+        while (eol < n && load8(buf + eol) != 10) { eol += 1; }
+        let lend: int = eol;
+        if (lend > pos && load8(buf + lend - 1) == 13) { lend -= 1; }
+        if (lend - pos > kl + 1 && load8(buf + pos + kl) == 61) {
+            let ok: int = 1;
+            for (let k: int = 0; k < kl; k += 1) {
+                if (load8(buf + pos + k) != load8(kp + k)) { ok = 0; break; }
+            }
+            if (ok) {
+                let v0: int = pos + kl + 1;
+                while (v0 < lend && load8(buf + v0) == 32) { v0 += 1; }
+                if (v0 < lend) {
+                    ob_esc_raw(ob, buf + v0, lend - v0);
+                    return 1;
+                }
+            }
+        }
+        pos = eol + 1;
+    }
+    if (str_len(fallback) > 0) { ob_s(ob, fallback); }
+    return 0;
+}
+
+fn emit_css(ob: int) {
+    ob_reset(ob);
+    ob_ln(ob, "/* ATHERIUM / .ath — Adaptive Theme Stylesheet (Auto Dark/Light matching user system) */");
+    ob_ln(ob, ":root {");
+    ob_ln(ob, "  --bg-body: #0b0b0e;");
+    ob_ln(ob, "  --bg-page: #0e0e13;");
+    ob_ln(ob, "  --bg-bar: #07070a;");
+    ob_ln(ob, "  --bg-card: #131318;");
+    ob_ln(ob, "  --bg-card-hover: #191920;");
+    ob_ln(ob, "  --bg-input: #121217;");
+    ob_ln(ob, "  --bg-code: #070709;");
+    ob_ln(ob, "  --bg-btn: #141419;");
+    ob_ln(ob, "  --bg-btn-hover: #1f1f26;");
+    ob_ln(ob, "  --bg-btn-rec: #1c1c24;");
+    ob_ln(ob, "  --bg-btn-dim: #0a0a0d;");
+    ob_ln(ob, "  --border-dim: #22222a;");
+    ob_ln(ob, "  --border-subtle: #2b2b36;");
+    ob_ln(ob, "  --border-card: #2f2f3b;");
+    ob_ln(ob, "  --border-hover: #4e4e60;");
+    ob_ln(ob, "  --border-bold: #e0e0e6;");
+    ob_ln(ob, "  --border-dashed: #444455;");
+    ob_ln(ob, "  --text-main: #e2e2e8;");
+    ob_ln(ob, "  --text-muted: #9494a3;");
+    ob_ln(ob, "  --text-dim: #6c6c7b;");
+    ob_ln(ob, "  --text-head: #ffffff;");
+    ob_ln(ob, "  --link-color: #ffffff;");
+    ob_ln(ob, "  --link-hover: #b4b4c4;");
+    ob_ln(ob, "  --dot-color: #4ade80;");
+    ob_ln(ob, "  --copy-btn-bg: #09090c;");
+    ob_ln(ob, "  --copy-btn-border: #333340;");
+    ob_ln(ob, "  --copy-btn-text: #b0b0be;");
+    ob_ln(ob, "}");
+    ob_ln(ob, "@media (prefers-color-scheme: light) {");
+    ob_ln(ob, "  :root {");
+    ob_ln(ob, "    --bg-body: #f4f5f7;");
+    ob_ln(ob, "    --bg-page: #ffffff;");
+    ob_ln(ob, "    --bg-bar: #f0f2f5;");
+    ob_ln(ob, "    --bg-card: #f8f9fa;");
+    ob_ln(ob, "    --bg-card-hover: #f1f3f6;");
+    ob_ln(ob, "    --bg-input: #ffffff;");
+    ob_ln(ob, "    --bg-code: #f3f4f6;");
+    ob_ln(ob, "    --bg-btn: #ffffff;");
+    ob_ln(ob, "    --bg-btn-hover: #f1f3f6;");
+    ob_ln(ob, "    --bg-btn-rec: #f0f4f8;");
+    ob_ln(ob, "    --bg-btn-dim: #fafbfc;");
+    ob_ln(ob, "    --border-dim: #e1e4e8;");
+    ob_ln(ob, "    --border-subtle: #d0d7de;");
+    ob_ln(ob, "    --border-card: #d0d7de;");
+    ob_ln(ob, "    --border-hover: #8c959f;");
+    ob_ln(ob, "    --border-bold: #1f2328;");
+    ob_ln(ob, "    --border-dashed: #8c959f;");
+    ob_ln(ob, "    --text-main: #24292f;");
+    ob_ln(ob, "    --text-muted: #57606a;");
+    ob_ln(ob, "    --text-dim: #8c959f;");
+    ob_ln(ob, "    --text-head: #1f2328;");
+    ob_ln(ob, "    --link-color: #0969da;");
+    ob_ln(ob, "    --link-hover: #054da7;");
+    ob_ln(ob, "    --dot-color: #1a7f37;");
+    ob_ln(ob, "    --copy-btn-bg: #f6f8fa;");
+    ob_ln(ob, "    --copy-btn-border: #d0d7de;");
+    ob_ln(ob, "    --copy-btn-text: #24292f;");
+    ob_ln(ob, "  }");
+    ob_ln(ob, "}");
+    ob_ln(ob, "html[data-theme=\"dark\"] {");
+    ob_ln(ob, "  --bg-body: #0b0b0e;");
+    ob_ln(ob, "  --bg-page: #0e0e13;");
+    ob_ln(ob, "  --bg-bar: #07070a;");
+    ob_ln(ob, "  --bg-card: #131318;");
+    ob_ln(ob, "  --bg-card-hover: #191920;");
+    ob_ln(ob, "  --bg-input: #121217;");
+    ob_ln(ob, "  --bg-code: #070709;");
+    ob_ln(ob, "  --bg-btn: #141419;");
+    ob_ln(ob, "  --bg-btn-hover: #1f1f26;");
+    ob_ln(ob, "  --bg-btn-rec: #1c1c24;");
+    ob_ln(ob, "  --bg-btn-dim: #0a0a0d;");
+    ob_ln(ob, "  --border-dim: #22222a;");
+    ob_ln(ob, "  --border-subtle: #2b2b36;");
+    ob_ln(ob, "  --border-card: #2f2f3b;");
+    ob_ln(ob, "  --border-hover: #4e4e60;");
+    ob_ln(ob, "  --border-bold: #e0e0e6;");
+    ob_ln(ob, "  --border-dashed: #444455;");
+    ob_ln(ob, "  --text-main: #e2e2e8;");
+    ob_ln(ob, "  --text-muted: #9494a3;");
+    ob_ln(ob, "  --text-dim: #6c6c7b;");
+    ob_ln(ob, "  --text-head: #ffffff;");
+    ob_ln(ob, "  --link-color: #ffffff;");
+    ob_ln(ob, "  --link-hover: #b4b4c4;");
+    ob_ln(ob, "  --dot-color: #4ade80;");
+    ob_ln(ob, "  --copy-btn-bg: #09090c;");
+    ob_ln(ob, "  --copy-btn-border: #333340;");
+    ob_ln(ob, "  --copy-btn-text: #b0b0be;");
+    ob_ln(ob, "}");
+    ob_ln(ob, "html[data-theme=\"light\"] {");
+    ob_ln(ob, "  --bg-body: #f4f5f7;");
+    ob_ln(ob, "  --bg-page: #ffffff;");
+    ob_ln(ob, "  --bg-bar: #f0f2f5;");
+    ob_ln(ob, "  --bg-card: #f8f9fa;");
+    ob_ln(ob, "  --bg-card-hover: #f1f3f6;");
+    ob_ln(ob, "  --bg-input: #ffffff;");
+    ob_ln(ob, "  --bg-code: #f3f4f6;");
+    ob_ln(ob, "  --bg-btn: #ffffff;");
+    ob_ln(ob, "  --bg-btn-hover: #f1f3f6;");
+    ob_ln(ob, "  --bg-btn-rec: #f0f4f8;");
+    ob_ln(ob, "  --bg-btn-dim: #fafbfc;");
+    ob_ln(ob, "  --border-dim: #e1e4e8;");
+    ob_ln(ob, "  --border-subtle: #d0d7de;");
+    ob_ln(ob, "  --border-card: #d0d7de;");
+    ob_ln(ob, "  --border-hover: #8c959f;");
+    ob_ln(ob, "  --border-bold: #1f2328;");
+    ob_ln(ob, "  --border-dashed: #8c959f;");
+    ob_ln(ob, "  --text-main: #24292f;");
+    ob_ln(ob, "  --text-muted: #57606a;");
+    ob_ln(ob, "  --text-dim: #8c959f;");
+    ob_ln(ob, "  --text-head: #1f2328;");
+    ob_ln(ob, "  --link-color: #0969da;");
+    ob_ln(ob, "  --link-hover: #054da7;");
+    ob_ln(ob, "  --dot-color: #1a7f37;");
+    ob_ln(ob, "  --copy-btn-bg: #f6f8fa;");
+    ob_ln(ob, "  --copy-btn-border: #d0d7de;");
+    ob_ln(ob, "  --copy-btn-text: #24292f;");
+    ob_ln(ob, "}");
+    ob_ln(ob, "*, *::before, *::after { box-sizing: border-box; }");
+    ob_ln(ob, "html { scroll-behavior: smooth; }");
+    ob_ln(ob, "body { margin: 0; background: var(--bg-body); color: var(--text-main); font-family: 'Bitstream Vera Sans Mono', 'DejaVu Sans Mono', 'Liberation Mono', monospace; font-size: 15px; line-height: 1.75; transition: background 0.15s ease, color 0.15s ease; }");
+    ob_ln(ob, "a { color: var(--link-color); text-decoration: underline; text-underline-offset: 4px; }");
+    ob_ln(ob, "a:hover { color: var(--link-hover); }");
+    ob_ln(ob, "code { background: var(--bg-code); border: 1px solid var(--border-dim); padding: 1px 5px; font-size: 0.92em; color: var(--text-head); }");
+    ob_ln(ob, ".page { max-width: 1120px; margin: 0 auto; background: var(--bg-page); border-left: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle); min-height: 100vh; }");
+    ob_ln(ob, ".header { display: grid; grid-template-columns: 220px 1fr 190px; align-items: stretch; }");
+    ob_ln(ob, ".logo-cell { display: flex; align-items: center; justify-content: center; padding: 24px; border-right: 1px dashed var(--border-dashed); border-bottom: 1px dashed var(--border-dashed); }");
+    ob_ln(ob, ".logo-cell img { width: 148px; height: 148px; object-fit: contain; }");
+    ob_ln(ob, ".title-cell { padding: 30px 36px 22px; display: flex; flex-direction: column; justify-content: center; }");
+    ob_ln(ob, ".brand { margin: 0; font-size: clamp(28px, 4.5vw, 52px); color: var(--text-head); letter-spacing: 1px; line-height: 1.1; }");
+    ob_ln(ob, ".sub { margin: 12px 0 18px; color: var(--text-muted); font-size: 13px; }");
+    ob_ln(ob, ".nav { display: flex; flex-wrap: wrap; gap: 18px 22px; font-size: 14px; font-weight: bold; }");
+    ob_ln(ob, ".nav a { text-decoration: none; }");
+    ob_ln(ob, ".nav a:hover { text-decoration: underline; }");
+    ob_ln(ob, ".cross-cell { align-self: end; border-top: 1px solid var(--border-subtle); border-left: 1px solid var(--border-subtle); padding: 18px 20px; display: flex; align-items: center; justify-content: center; margin-top: 84px; }");
+    ob_ln(ob, ".cross-cell img { width: 76px; height: 118px; object-fit: contain; }");
+    ob_ln(ob, ".ascii-rule { border: 0; border-top: 2px dashed var(--border-dashed); margin: 0; }");
+    ob_ln(ob, ".ascii-rule.dim { border-top: 1px solid var(--border-dim); }");
+    ob_ln(ob, ".top-meta-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 32px; background: var(--bg-bar); border-bottom: 1px solid var(--border-dim); font-size: 12px; color: var(--text-muted); }");
+    ob_ln(ob, ".sync-dot { display: inline-block; width: 7px; height: 7px; background: var(--dot-color); border-radius: 50%; margin-right: 4px; vertical-align: middle; }");
+    ob_ln(ob, ".sync-refresh { color: var(--text-muted); text-decoration: none; }");
+    ob_ln(ob, ".sync-refresh:hover { color: var(--text-head); text-decoration: underline; }");
+    ob_ln(ob, ".setup-jump { font-weight: bold; font-size: 14px; }");
+    ob_ln(ob, ".setup-jump a { text-decoration: none; }");
+    ob_ln(ob, ".setup-jump a:hover { text-decoration: underline; }");
+    ob_ln(ob, ".theme-btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--bg-btn); border: 1px solid var(--border-card); color: var(--text-muted); font-size: 12px; font-weight: bold; cursor: pointer; font-family: inherit; }");
+    ob_ln(ob, ".theme-btn:hover { color: var(--text-head); border-color: var(--border-hover); background: var(--bg-btn-hover); }");
+    ob_ln(ob, ".sec { padding: 48px 56px; }");
+    ob_ln(ob, "h2.center { text-align: center; font-size: clamp(28px, 4vw, 44px); color: var(--text-head); margin: 0 0 28px; }");
+    ob_ln(ob, ".install-wrap { display: flex; justify-content: center; margin-bottom: 44px; }");
+    ob_ln(ob, ".install-box { border-left: 2px solid var(--border-bold); border-right: 2px solid var(--border-bold); border-bottom: 2px solid var(--border-bold); padding: 14px 48px 18px; position: relative; text-align: center; }");
+    ob_ln(ob, ".install-box h2 { margin: 0; font-size: clamp(22px, 3.2vw, 36px); color: var(--text-head); }");
+    ob_ln(ob, ".install-box .smile { position: absolute; right: -44px; bottom: -10px; color: var(--text-head); font-size: 16px; white-space: nowrap; }");
+    ob_ln(ob, ".lead { max-width: 82ch; margin: 0 0 32px; font-size: 16px; color: var(--text-main); }");
+    ob_ln(ob, ".ftypes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 28px 0 32px; }");
+    ob_ln(ob, ".ftype { display: flex; align-items: center; gap: 14px; }");
+    ob_ln(ob, ".ftype img { width: 44px; height: 44px; object-fit: contain; }");
+    ob_ln(ob, ".ftype .ext { color: var(--text-head); font-weight: bold; font-size: 17px; display: block; }");
+    ob_ln(ob, ".ftype .desc { color: var(--text-muted); font-size: 12px; display: block; }");
+    ob_ln(ob, ".subhead-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 24px; margin: 36px 0 14px; }");
+    ob_ln(ob, ".subhead { color: var(--text-head); font-size: 21px; font-weight: bold; margin: 0; }");
+    ob_ln(ob, ".code-wrap { position: relative; margin: 0 0 28px; }");
+    ob_ln(ob, ".code-wrap .codebox { margin: 0; padding-right: 84px; }");
+    ob_ln(ob, ".copy-btn { position: absolute; top: 10px; right: 10px; background: var(--copy-btn-bg); color: var(--copy-btn-text); border: 1px solid var(--copy-btn-border); padding: 4px 10px; font-family: inherit; font-size: 12px; font-weight: bold; cursor: pointer; }");
+    ob_ln(ob, ".copy-btn:hover { color: var(--text-head); border-color: var(--border-bold); }");
+    ob_ln(ob, ".codebox { background: var(--bg-code); border: 1px solid var(--border-card); padding: 20px 24px; overflow-x: auto; font-size: 14px; line-height: 1.85; color: var(--text-main); margin: 0 0 28px; }");
+    ob_ln(ob, ".perf-box { background: var(--bg-card); border: 1px solid var(--border-card); padding: 26px 28px; display: flex; align-items: center; gap: 32px; }");
+    ob_ln(ob, ".perf-gif-wrap { flex-shrink: 0; width: 176px; height: 176px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-dashed); background: var(--bg-code); padding: 10px; }");
+    ob_ln(ob, ".perf-gif-wrap img { width: 152px; height: 152px; object-fit: contain; display: block; }");
+    ob_ln(ob, ".perf-list { list-style: none; padding: 0; margin: 0; }");
+    ob_ln(ob, ".perf-list li { margin: 10px 0; font-size: 14px; color: var(--text-muted); }");
+    ob_ln(ob, ".perf-list li:first-child { margin-top: 0; }");
+    ob_ln(ob, ".perf-list li:last-child { margin-bottom: 0; }");
+    ob_ln(ob, ".perf-list strong { color: var(--text-head); }");
+    ob_ln(ob, ".studio-box { background: var(--bg-card); border: 1px solid var(--border-card); padding: 26px 28px; display: flex; align-items: flex-start; gap: 26px; margin-top: 32px; }");
+    ob_ln(ob, ".studio-box > img { width: 88px; height: 88px; object-fit: contain; flex-shrink: 0; margin-top: 4px; }");
+    ob_ln(ob, ".studio-body { flex: 1; min-width: 0; }");
+    ob_ln(ob, ".studio-box h3 { margin: 0 0 8px; color: var(--text-head); font-size: 22px; }");
+    ob_ln(ob, ".studio-box p { margin: 0 0 12px; color: var(--text-muted); font-size: 14px; }");
+    ob_ln(ob, ".studio-meta { font-size: 12px; color: var(--text-dim); margin: 12px 0 14px; }");
+    ob_ln(ob, ".btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 12px; }");
+    ob_ln(ob, ".terms { list-style: none; padding: 0; margin: 24px 0 20px; }");
+    ob_ln(ob, ".terms li { margin: 10px 0; }");
+    ob_ln(ob, ".terms strong { color: var(--text-head); display: inline-block; min-width: 280px; }");
+    ob_ln(ob, ".libs-head { text-align: center; padding: 36px 56px 28px; position: relative; }");
+    ob_ln(ob, ".back-link { position: absolute; left: 56px; top: 36px; font-size: 14px; font-weight: bold; color: var(--text-muted); text-decoration: none; }");
+    ob_ln(ob, ".back-link:hover { color: var(--text-head); }");
+    ob_ln(ob, ".libs-underline { max-width: 520px; border: 0; border-top: 2px solid var(--border-bold); margin: 14px auto 18px; }");
+    ob_ln(ob, ".filter-bar { display: flex; align-items: center; gap: 12px; margin: 0 0 26px; background: var(--bg-input); border: 1px solid var(--border-card); padding: 10px 14px; }");
+    ob_ln(ob, ".filter-bar span { color: var(--text-head); font-weight: bold; }");
+    ob_ln(ob, ".filter-bar input { flex: 1; background: transparent; border: 0; outline: none; color: var(--text-main); font-family: inherit; font-size: 14px; }");
+    ob_ln(ob, ".cat-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: -10px 0 24px; }");
+    ob_ln(ob, ".cat-pill { background: var(--bg-btn-dim); border: 1px solid var(--border-dim); color: var(--text-muted); padding: 6px 14px; font-family: inherit; font-size: 13px; font-weight: bold; cursor: pointer; }");
+    ob_ln(ob, ".cat-pill:hover { border-color: var(--border-hover); color: var(--text-head); }");
+    ob_ln(ob, ".cat-pill.active { background: var(--bg-card-hover); border-color: var(--border-bold); color: var(--text-head); }");
+    ob_ln(ob, ".bundle-box { background: var(--bg-card); border: 1px solid var(--border-card); padding: 22px 24px; margin: 18px 0 24px; }");
+    ob_ln(ob, ".bundle-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }");
+    ob_ln(ob, ".bundle-title { margin: 0; color: var(--text-head); font-size: 18px; font-weight: bold; }");
+    ob_ln(ob, ".bundle-sub { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; }");
+    ob_ln(ob, ".bundle-main-btns { display: flex; flex-wrap: wrap; gap: 8px; }");
+    ob_ln(ob, ".bundle-select-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px dashed var(--border-dim); border-bottom: 1px dashed var(--border-dim); margin-bottom: 14px; font-size: 13px; color: var(--text-muted); }");
+    ob_ln(ob, ".btn.small { padding: 4px 10px; font-size: 12px; }");
+    ob_ln(ob, ".guide-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 8px; border-bottom: 1px solid var(--border-dim); }");
+    ob_ln(ob, ".guide-tab { font-size: 12px; font-weight: bold; color: var(--text-muted); padding: 6px 10px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }");
+    ob_ln(ob, ".guide-tab:hover { color: var(--text-head); }");
+    ob_ln(ob, ".guide-tab.active { color: var(--text-head); border-bottom-color: var(--border-bold); }");
+    ob_ln(ob, ".bundle-chk-label { display: flex; align-items: center; cursor: pointer; margin-right: 2px; }");
+    ob_ln(ob, ".bundle-chk { width: 16px; height: 16px; accent-color: var(--text-head); cursor: pointer; }");
+    ob_ln(ob, ".lib-list { display: flex; flex-direction: column; gap: 14px; margin: 20px 0 40px; }");
+    ob_ln(ob, ".lib-item { background: var(--bg-card); border: 1px solid var(--border-card); }");
+    ob_ln(ob, ".lib-row { padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }");
+    ob_ln(ob, ".lib-left { display: flex; align-items: center; gap: 18px; min-width: 0; }");
+    ob_ln(ob, ".lib-left img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }");
+    ob_ln(ob, ".lib-name { color: var(--text-head); font-weight: bold; font-size: 17px; }");
+    ob_ln(ob, ".lib-meta { color: var(--text-dim); font-size: 12px; margin-left: 10px; }");
+    ob_ln(ob, ".lib-desc { color: var(--text-muted); font-size: 13px; margin-top: 4px; }");
+    ob_ln(ob, ".lib-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }");
+    ob_ln(ob, ".swatches { display: inline-flex; gap: 5px; vertical-align: middle; margin-left: 10px; }");
+    ob_ln(ob, ".sw { display: inline-block; width: 13px; height: 13px; border: 1px solid var(--border-dim); }");
+    ob_ln(ob, ".src-preview { display: none; margin: 0; padding: 16px 22px; border-top: 1px dashed var(--border-dim); background: var(--bg-code); color: var(--text-main); font-size: 12px; line-height: 1.65; overflow-x: auto; max-height: 360px; }");
+    ob_ln(ob, ".btn { display: inline-block; padding: 9px 15px; border: 1px solid var(--border-card); background: var(--bg-btn); color: var(--text-head); text-decoration: none; font-family: inherit; font-size: 13px; font-weight: bold; cursor: pointer; }");
+    ob_ln(ob, ".btn:hover { background: var(--bg-btn-hover); border-color: var(--border-hover); color: var(--text-head); }");
+    ob_ln(ob, ".btn.rec { border-color: var(--border-bold); background: var(--bg-btn-rec); }");
+    ob_ln(ob, ".btn.dim { border-color: var(--border-dim); background: var(--bg-btn-dim); color: var(--text-muted); }");
+    ob_ln(ob, ".btn.dim:hover { border-color: var(--border-hover); color: var(--text-head); }");
+    ob_ln(ob, "footer { padding: 26px 56px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; color: var(--text-dim); font-size: 13px; }");
+    ob_ln(ob, ".foot-left { display: flex; align-items: center; gap: 14px; }");
+    ob_ln(ob, "footer img { width: 34px; height: 34px; object-fit: contain; }");
+    ob_ln(ob, "@media (max-width: 820px) { .header { grid-template-columns: 1fr; } .logo-cell { border-right: 0; } .cross-cell { margin-top: 0; border-left: 0; } .ftypes { grid-template-columns: 1fr 1fr; } .sec { padding: 32px 22px; } .top-meta-bar { padding: 10px 22px; } .lib-row, .studio-box, .perf-box, .bundle-head { flex-direction: column; align-items: flex-start; } .back-link { position: static; display: block; margin-bottom: 16px; text-align: left; } }");
+}
+
+fn emit_html_head(ob: int, title: str) {
+    ob_ln(ob, "<head>");
+    ob_ln(ob, "  <meta charset=\"utf-8\">");
+    ob_ln(ob, "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    ob_ln(ob, "  <meta name=\"color-scheme\" content=\"dark light\">");
+    ob_s(ob,  "  <title>");
+    ob_s(ob,  title);
+    ob_ln(ob, "</title>");
+    ob_ln(ob, "  <link rel=\"icon\" type=\"image/png\" href=\"assets/atherium-logo.png\">");
+    ob_ln(ob, "  <script>");
+    ob_ln(ob, "    (function(){try{var t=localStorage.getItem('ath_theme')||'auto';var d=t==='dark'||(t==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',t);document.documentElement.className=d?'theme-dark':'theme-light';document.documentElement.style.colorScheme=d?'dark':'light';document.documentElement.style.backgroundColor=d?'#0b0b0e':'#f4f5f7';}catch(_){}})();");
+    ob_ln(ob, "  </script>");
+    ob_ln(ob, "  <style>");
+    ob_ln(ob, "    html,body{margin:0;background-color:#0b0b0e;color:#e2e2e8;color-scheme:dark;}");
+    ob_ln(ob, "    @media (prefers-color-scheme: light){html:not([data-theme=\"dark\"]),html:not([data-theme=\"dark\"]) body{background-color:#f4f5f7;color:#24292f;color-scheme:light;}}");
+    ob_ln(ob, "    html[data-theme=\"dark\"],html[data-theme=\"dark\"] body{background-color:#0b0b0e !important;color:#e2e2e8 !important;color-scheme:dark !important;}");
+    ob_ln(ob, "    html[data-theme=\"light\"],html[data-theme=\"light\"] body{background-color:#f4f5f7 !important;color:#24292f !important;color-scheme:light !important;}");
+    ob_ln(ob, "  </style>");
+    ob_ln(ob, "  <link rel=\"stylesheet\" href=\"style.css\">");
+    ob_ln(ob, "</head>");
+}
+
+fn emit_index_html(ob: int, lib_names_buf: int, lib_names_len: int) {
+    ob_reset(ob);
+    ob_ln(ob, "<!DOCTYPE html>");
+    ob_ln(ob, "<html lang=\"en\">");
+    emit_html_head(ob, "ATHERIUM / .ath");
+    ob_ln(ob, "<body>");
+    ob_ln(ob, "<div class=\"page\">");
+
+    // Header
+    ob_ln(ob, "  <header class=\"header\">");
+    ob_ln(ob, "    <div class=\"logo-cell\"><img src=\"assets/atherium-logo.png\" alt=\"Atherium logo\"></div>");
+    ob_ln(ob, "    <div class=\"title-cell\">");
+    ob_ln(ob, "      <h1 class=\"brand\">ATHERIUM / .ath</h1>");
+    ob_s(ob,  "      <p class=\"sub\">Lightweight statically typed language &nbsp;|&nbsp; <a href=\"");
+    ob_s(ob,  REPO_URL);
+    ob_s(ob,  "\">Atherium</a> &nbsp;&middot;&nbsp; <a href=\"");
+    ob_s(ob,  STUDIO_REPO_URL);
+    ob_ln(ob, "\">AtheriumStudio</a></p>");
+    ob_ln(ob, "      <nav class=\"nav\">");
+    ob_ln(ob, "        <a href=\"#intro\">&gt;Introduction</a>");
+    ob_ln(ob, "        <a href=\"#performance\">&gt;Performance</a>");
+    ob_ln(ob, "        <a href=\"#install\">&gt;Installation</a>");
+    ob_ln(ob, "        <a href=\"#studio\">&gt;Atherium Studio</a>");
+    ob_ln(ob, "        <a href=\"libraries.html\">&gt;Libraries &amp; Plugins</a>");
+    ob_ln(ob, "        <a href=\"#license\">&gt;TOS / Licence</a>");
+    ob_ln(ob, "      </nav>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "    <div class=\"cross-cell\"><img src=\"assets/cross.png\" alt=\"Cross\"></div>");
+    ob_ln(ob, "  </header>");
+    ob_ln(ob, "  <hr class=\"ascii-rule\">");
+    ob_ln(ob, "  <div class=\"top-meta-bar\">");
+    ob_ln(ob, "    <div id=\"gh-sync-bar\"><span class=\"sync-dot\"></span> Connecting to GitHub (Deadstillplays/Atherium &amp; AtheriumStudio)...</div>");
+    ob_ln(ob, "    <div style=\"display:flex;align-items:center;gap:14px;\">");
+    ob_ln(ob, "      <div class=\"setup-jump\"><a href=\"#studio\">&gt;Download Studio</a> &nbsp;|&nbsp; <a href=\"#install\">&gt;Click here to setup</a></div>");
+    ob_ln(ob, "      <button type=\"button\" id=\"theme-toggle-btn\" class=\"theme-btn\" title=\"Toggle theme (Auto / Dark / Light)\"><span id=\"theme-icon\">🌙</span> <span id=\"theme-label\">Auto</span></button>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "  </div>");
+
+    // Section 1: Introduction
+    ob_ln(ob, "  <section id=\"intro\" class=\"sec\">");
+    ob_ln(ob, "    <h2 class=\"center\">Introduction</h2>");
+    ob_ln(ob, "    <p class=\"lead\">Atherium is a lightweight coding language built bottom-up from a hand-designed binary ISA. Source files (<code>.ath</code> / <code>.athlib</code>) compile to readable assembly (<code>.athasm</code>) and compact bytecode (<code>.athbin</code>), executed by a sandboxed W^X x86-64 VM JIT or compiled straight into standalone zero-libc Linux ELF64 binaries — with zero external dependencies.</p>");
+    ob_ln(ob, "    <div class=\"ftypes\">");
+    ob_ln(ob, "      <div class=\"ftype\"><img src=\"assets/atherium-logo.png\" alt=\".ath\"><div><span class=\"ext\">.ath</span><span class=\"desc\">Source program</span></div></div>");
+    ob_ln(ob, "      <div class=\"ftype\"><img src=\"assets/Atheriumlib.png\" alt=\".athlib\"><div><span class=\"ext\">.athlib</span><span class=\"desc\">Library module</span></div></div>");
+    ob_ln(ob, "      <div class=\"ftype\"><img src=\"assets/Atheriumasm.png\" alt=\".athasm\"><div><span class=\"ext\">.athasm</span><span class=\"desc\">Assembly listing</span></div></div>");
+    ob_ln(ob, "      <div class=\"ftype\"><img src=\"assets/Atheriumbin.png\" alt=\".athbin\"><div><span class=\"ext\">.athbin</span><span class=\"desc\">Bytecode image</span></div></div>");
+    ob_ln(ob, "    </div>");
+    ob_s(ob,  "    <p><strong>&gt;Language repo &amp; full docs:</strong> <a href=\"");
+    ob_s(ob,  REPO_URL);
+    ob_s(ob,  "\">");
+    ob_s(ob,  REPO_URL);
+    ob_s(ob,  "</a> &nbsp;|&nbsp; <a href=\"");
+    ob_s(ob,  REPO_URL);
+    ob_ln(ob, "/blob/main/LANGUAGE.md\">LANGUAGE.md -&gt;</a></p>");
+    ob_s(ob,  "    <p><strong>&gt;Atherium Studio repo:</strong> <a href=\"");
+    ob_s(ob,  STUDIO_REPO_URL);
+    ob_s(ob,  "\">");
+    ob_s(ob,  STUDIO_REPO_URL);
+    ob_ln(ob, "</a></p>");
+    ob_ln(ob, "  </section>");
+
+    // Section 2: Performance Notices (featuring the spinning Atherium gear GIF!)
+    ob_ln(ob, "  <hr class=\"ascii-rule\">");
+    ob_ln(ob, "  <section id=\"performance\" class=\"sec\">");
+    ob_ln(ob, "    <h2 class=\"center\">Performance Notices</h2>");
+    ob_ln(ob, "    <div class=\"perf-box\">");
+    ob_ln(ob, "      <div class=\"perf-gif-wrap\"><img src=\"assets/loading_animation.gif\" alt=\"Atherium execution engine animation\"></div>");
+    ob_ln(ob, "      <ul class=\"perf-list\">");
+    ob_ln(ob, "        <li><strong>&gt; Sandboxed W^X x86-64 VM JIT (default):</strong> Translates <code>.athbin</code> bytecode directly to native x86-64 code in-process with millisecond startup. Force the portable threaded interpreter with <code>ATH_VM_NO_JIT=1</code> or reference stepping with <code>ATH_VM_REF=1</code>.</li>");
+    ob_ln(ob, "        <li><strong>&gt; Zero-Libc Standalone Native AOT:</strong> <code>atherium native</code> compiles <code>.ath</code> straight to a standalone Linux x86-64 ELF64 binary with an embedded freestanding runtime — no external linker, no libc, no runtime overhead.</li>");
+    ob_ln(ob, "        <li><strong>&gt; Configurable Flat Guest RAM:</strong> Defaults to <code>64M</code> sandboxed memory; tune per program with <code>--mem 64K</code> up to <code>--mem 6GiB</code>. All compiler, JIT, and native optimizations are 100% general-purpose.</li>");
+    ob_ln(ob, "        <li><strong>&gt; Atherium Studio Startup Notice:</strong> The Linux <code>.AppImage</code> executes native zero-libc ELF64 directly (~1–2 ms run times). The Windows <code>.exe</code> unpacks its bundled stdlib &amp; compiler sources once to <code>%TEMP%/AtheriumStudio</code> on first launch.</li>");
+    ob_ln(ob, "      </ul>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "  </section>");
+
+    // Section 3: Installation & how to use
+    ob_ln(ob, "  <hr class=\"ascii-rule\">");
+    ob_ln(ob, "  <section id=\"install\" class=\"sec\" style=\"padding-top:0;\">");
+    ob_ln(ob, "    <div class=\"install-wrap\"><div class=\"install-box\"><h2>Installation &amp; how to use</h2><span class=\"smile\">\\ :)</span></div></div>");
+
+    ob_ln(ob, "    <div class=\"subhead-row\">");
+    ob_ln(ob, "      <h3 class=\"subhead\">&gt;Main setup files</h3>");
+    ob_s(ob,  "      <a href=\"");
+    ob_s(ob,  REPO_URL);
+    ob_ln(ob, "\">[ Clone / Download from GitHub -&gt; ]</a>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "    <pre class=\"codebox\" data-copy=\"sh\">$ git clone https://github.com/Deadstillplays/Atherium.git");
+    ob_ln(ob, "$ cd Atherium &amp;&amp; make                       # builds ./build/atherium (gcc or clang)");
+    ob_ln(ob, "$ ./build/atherium run hello.ath            # run on W^X x86-64 VM JIT");
+    ob_ln(ob, "$ ./build/atherium native hello.ath -o app  # compile standalone zero-libc ELF64");
+    ob_ln(ob, "$ ./scripts/install_ath_icon.sh             # register .ath/.athlib/.athasm/.athbin icons</pre>");
+
+    ob_ln(ob, "    <div class=\"subhead-row\">");
+    ob_ln(ob, "      <h3 class=\"subhead\">&gt;Current Libraries</h3>");
+    ob_ln(ob, "      <a href=\"libraries.html\"><strong>Open Libraries, Plugins &amp; Themes catalog -&gt;</strong></a>");
+    ob_ln(ob, "    </div>");
+    ob_s(ob,  "    <p style=\"color:#9a9a9a;\">Standard libraries in <code>lib/</code> (auto-synced from GitHub): <span id=\"inline-libs\">");
+    let pos: int = 0;
+    let first: int = 1;
+    while (pos < lib_names_len) {
+        let eol: int = pos;
+        while (eol < lib_names_len && load8(lib_names_buf + eol) != 10) { eol += 1; }
+        let nlen: int = eol - pos;
+        if (ends_with_ext(lib_names_buf + pos, nlen, ".athlib")) {
+            if (!first) { ob_s(ob, " &nbsp;|&nbsp; "); }
+            ob_s(ob, "<a href=\"libs/");
+            ob_esc_raw(ob, lib_names_buf + pos, nlen);
+            ob_s(ob, "\" data-gh-dl=\"");
+            ob_s(ob, RAW_ATH_BASE);
+            ob_s(ob, "lib/");
+            ob_esc_raw(ob, lib_names_buf + pos, nlen);
+            ob_s(ob, "\" data-filename=\"");
+            ob_esc_raw(ob, lib_names_buf + pos, nlen);
+            ob_s(ob, "\" download>");
+            ob_esc_raw(ob, lib_names_buf + pos, nlen - 7);
+            ob_s(ob, "</a>");
+            first = 0;
+        }
+        pos = eol + 1;
+    }
+    ob_ln(ob, "</span><br>Download any <code>.athlib</code> directly from the <a href=\"libraries.html\">Libraries page</a> or browse them on <a href=\"https://github.com/Deadstillplays/Atherium/tree/main/lib\">GitHub</a>.</p>");
+
+    // >Code editor (Atherium Studio) — live-linked to latest GitHub AppImage & EXE!
+    ob_ln(ob, "    <div id=\"studio\" class=\"studio-box\">");
+    ob_ln(ob, "      <img src=\"assets/atherium-studio-logo.png\" alt=\"Atherium Studio logo\">");
+    ob_ln(ob, "      <div class=\"studio-body\">");
+    ob_ln(ob, "        <h3>&gt;Code editor (Atherium Studio)</h3>");
+    ob_ln(ob, "        <p>Fast, bare-minimum native borderless desktop IDE written 100% in pure Atherium — featuring Luau-style predictive autocomplete, extensible <code>.athplugin</code> language plugins, interactive selectable terminal, custom <code>.aththeme</code> themes, native OS file dialogs, and 1-click import of the full Atherium compiler source into any project.</p>");
+    ob_ln(ob, "        <div class=\"btn-row\">");
+    ob_s(ob,  "          <a id=\"dl-studio-linux\" class=\"btn\" href=\"");
+    ob_s(ob,  STUDIO_APPIMAGE);
+    ob_ln(ob, "\" download=\"AtheriumStudio-x86_64.AppImage\">Linux (.AppImage)</a>");
+    ob_s(ob,  "          <a id=\"dl-studio-win\" class=\"btn\" href=\"");
+    ob_s(ob,  STUDIO_EXE);
+    ob_ln(ob, "\" download=\"AtheriumStudio-x86_64.exe\">Windows (.exe)</a>");
+    ob_ln(ob, "          <a class=\"btn dim\" href=\"bundles/atherium-plugins-bundle.zip\" download=\"atherium-plugins-bundle.zip\">Plugins Bundle (.zip)</a>");
+    ob_ln(ob, "          <a class=\"btn dim\" href=\"libraries.html#plugins\">Search Plugins &amp; Themes -&gt;</a>");
+    ob_s(ob,  "          <a class=\"btn dim\" href=\"");
+    ob_s(ob,  STUDIO_REPO_URL);
+    ob_ln(ob, "\">GitHub Repo -&gt;</a>");
+    ob_ln(ob, "        </div>");
+    ob_ln(ob, "        <div id=\"studio-live-meta\" class=\"studio-meta\">Downloads always pull the latest build from <a href=\"https://github.com/Deadstillplays/AtheriumStudio\">github.com/Deadstillplays/AtheriumStudio</a>.</div>");
+    ob_ln(ob, "        <pre class=\"codebox\" data-copy=\"sh\" style=\"margin-top:8px;margin-bottom:0;font-size:13px;\">$ chmod +x AtheriumStudio-x86_64.AppImage &amp;&amp; ./AtheriumStudio-x86_64.AppImage  # Linux");
+    ob_ln(ob, "$ AtheriumStudio-x86_64.exe                                                    # Windows</pre>");
+    ob_ln(ob, "      </div>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "  </section>");
+
+    // Section 4: TOS / Licence
+    ob_ln(ob, "  <hr class=\"ascii-rule\">");
+    ob_ln(ob, "  <section id=\"license\" class=\"sec\">");
+    ob_ln(ob, "    <h2 class=\"center\">TOS / Licence</h2>");
+    ob_ln(ob, "    <p style=\"text-align:center;color:#9a9a9a;margin-top:-12px;\">Atherium Source-Available License &mdash; Copyright (c) 2026 deadstillplays</p>");
+    ob_ln(ob, "    <ul class=\"terms\">");
+    ob_ln(ob, "      <li><strong>&gt; Free to use &amp; customize</strong> Use, study, modify, fork, and redistribute source and binaries.</li>");
+    ob_ln(ob, "      <li><strong>&gt; Attribution required</strong> Keep the copyright notice and credit Atherium / deadstillplays.</li>");
+    ob_ln(ob, "      <li><strong>&gt; No selling</strong> Do not sell Atherium or modified versions for fiat or digital currency.</li>");
+    ob_ln(ob, "      <li><strong>&gt; Commercial &gt;$20,000 USD</strong> Entities above $20k gross annual revenue require written permission.</li>");
+    ob_ln(ob, "    </ul>");
+    ob_ln(ob, "    <p>Full license: <a href=\"license.html\">read locally</a> &nbsp;|&nbsp; <a href=\"https://github.com/Deadstillplays/Atherium/blob/main/LICENSE\">view on GitHub</a></p>");
+    ob_ln(ob, "  </section>");
+
+    ob_ln(ob, "  <hr class=\"ascii-rule dim\">");
+    ob_ln(ob, "  <footer>");
+    ob_ln(ob, "    <div class=\"foot-left\"><img src=\"assets/atherium-logo.png\" alt=\"Atherium\"><span>ATHERIUM / .ath &mdash; Copyright (c) 2026 deadstillplays &mdash; Built in Atherium</span></div>");
+    ob_ln(ob, "    <div><a href=\"https://github.com/Deadstillplays/Atherium\">Atherium</a> &nbsp;|&nbsp; <a href=\"https://github.com/Deadstillplays/AtheriumStudio\">AtheriumStudio</a></div>");
+    ob_ln(ob, "  </footer>");
+    ob_ln(ob, "</div>");
+    ob_ln(ob, "<script src=\"github-sync.js\" defer></script>");
+    ob_ln(ob, "</body>");
+    ob_ln(ob, "</html>");
+}
+
+fn emit_plugins_section(ob: int, dir_buf: int, scratch: int, scratch_cap: int, pbuf1: int, pbuf2: int) -> int {
+    let dir_len: int = dir_list("studio/plugins", dir_buf, 16384);
+    let count: int = 0;
+    ob_ln(ob, "    <div id=\"plugins\" class=\"subhead-row\" style=\"margin-top:40px;\">");
+    ob_ln(ob, "      <h3 class=\"subhead\">&gt;Studio Plugins (.athplugin)</h3>");
+    ob_ln(ob, "      <a href=\"https://github.com/Deadstillplays/AtheriumStudio/tree/main/plugins\">Browse plugins/ on GitHub -&gt;</a>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "    <p style=\"color:#9a9a9a;margin-top:0;\">Import any <code>.athplugin</code> via <strong>Plugins &rarr; + Import Plugin</strong> or drop it directly into <code>.atherium-studio/plugins/</code>. Auto-synced live from <code>Deadstillplays/AtheriumStudio</code>.</p>");
+    ob_ln(ob, "    <div class=\"bundle-box\">");
+    ob_ln(ob, "      <div class=\"bundle-head\">");
+    ob_ln(ob, "        <div>");
+    ob_ln(ob, "          <h4 class=\"bundle-title\">&gt;Bundle Install: Atherium Studio Plugins</h4>");
+    ob_ln(ob, "          <p class=\"bundle-sub\">Install all language packs in one step, or select specific plugins below to download a custom ZIP bundle.</p>");
+    ob_ln(ob, "        </div>");
+    ob_ln(ob, "        <div class=\"bundle-main-btns\">");
+    ob_ln(ob, "          <a class=\"btn rec\" href=\"bundles/atherium-plugins-bundle.zip\" download=\"atherium-plugins-bundle.zip\" id=\"btn-dl-all-plugins\">Download All Plugins (.zip)</a>");
+    ob_ln(ob, "          <button type=\"button\" class=\"btn\" id=\"btn-dl-selected-plugins\">Download Selected (<span id=\"sel-plugin-count\">6</span>) as .zip</button>");
+    ob_ln(ob, "          <a class=\"btn dim\" href=\"bundles/atherium-studio-full-pack.zip\" download=\"atherium-studio-full-pack.zip\">Full Studio Pack</a>");
+    ob_ln(ob, "        </div>");
+    ob_ln(ob, "      </div>");
+    ob_ln(ob, "      <div class=\"bundle-select-bar\">");
+    ob_ln(ob, "        <span>Selection:</span>");
+    ob_ln(ob, "        <button type=\"button\" class=\"btn dim small\" id=\"btn-select-all-plugins\">Select All</button>");
+    ob_ln(ob, "        <button type=\"button\" class=\"btn dim small\" id=\"btn-deselect-all-plugins\">Deselect All</button>");
+    ob_ln(ob, "        <span id=\"bundle-zip-status\" style=\"font-size:12px;color:#888;margin-left:auto;\"></span>");
+    ob_ln(ob, "      </div>");
+    ob_ln(ob, "      <div class=\"bundle-install-guide\">");
+    ob_ln(ob, "        <div class=\"guide-tabs\">");
+    ob_ln(ob, "          <span class=\"guide-tab active\" data-tab=\"tab-term-linux\">Linux / macOS Terminal</span>");
+    ob_ln(ob, "          <span class=\"guide-tab\" data-tab=\"tab-term-win\">Windows PowerShell</span>");
+    ob_ln(ob, "          <span class=\"guide-tab\" data-tab=\"tab-studio-ui\">Studio GUI Import</span>");
+    ob_ln(ob, "        </div>");
+    ob_ln(ob, "        <div id=\"tab-term-linux\" class=\"guide-pane active\">");
+    ob_ln(ob, "          <pre class=\"codebox\" data-copy=\"sh\">mkdir -p ~/.atherium-studio/plugins &amp;&amp; curl -fsSL https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/bundles/atherium-plugins-bundle.zip -o /tmp/plg.zip &amp;&amp; unzip -o /tmp/plg.zip -d ~/.atherium-studio/plugins &amp;&amp; rm /tmp/plg.zip</pre>");
+    ob_ln(ob, "        </div>");
+    ob_ln(ob, "        <div id=\"tab-term-win\" class=\"guide-pane\" style=\"display:none;\">");
+    ob_ln(ob, "          <pre class=\"codebox\" data-copy=\"powershell\">New-Item -ItemType Directory -Force \"$HOME\\.atherium-studio\\plugins\"; Invoke-WebRequest -Uri \"https://github.com/Deadstillplays/AtheriumStudio/raw/main/bundles/atherium-plugins-bundle.zip\" -OutFile \"$env:TEMP\\plg.zip\"; Expand-Archive -Force \"$env:TEMP\\plg.zip\" \"$HOME\\.atherium-studio\\plugins\"; Remove-Item \"$env:TEMP\\plg.zip\"</pre>");
+    ob_ln(ob, "        </div>");
+    ob_ln(ob, "        <div id=\"tab-studio-ui\" class=\"guide-pane\" style=\"display:none;\">");
+    ob_ln(ob, "          <pre class=\"codebox\" data-copy=\"raw\">1. Extract the downloaded ZIP bundle.\n2. In Atherium Studio: Click 'Plugins' in the top bar -&gt; '+ Import Plugin' (or drag .athplugin files into Plugins -&gt; Storage / Open Folder).\n3. Click 'Reload' in the Plugins menu to activate autocomplete and runner tools.</pre>");
+    ob_ln(ob, "        </div>");
+    ob_ln(ob, "      </div>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "    <div id=\"plugin-list\" class=\"lib-list\">");
+    if (dir_len > 0) {
+        let pos: int = 0;
+        while (pos < dir_len) {
+            let eol: int = pos;
+            while (eol < dir_len && load8(dir_buf + eol) != 10) { eol += 1; }
+            let nlen: int = eol - pos;
+            if (ends_with_ext(dir_buf + pos, nlen, ".athplugin")) {
+                let src_p: int = path_join_raw(pbuf1, "studio/plugins/", dir_buf + pos, nlen);
+                let dst_p: int = path_join_raw(pbuf2, "website/site/plugins/", dir_buf + pos, nlen);
+                let nb: int = file_read(src_p, scratch, scratch_cap);
+                if (nb >= 0) {
+                    file_write(dst_p, scratch, nb, 0);
+                    ob_s(ob,  "      <div class=\"lib-item\" data-cat=\"plugin\" data-plg-file=\"");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-search=\"");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  " plugin ");
+                    emit_kv_field(ob, scratch, nb, "name", "");
+                    ob_s(ob,  " ");
+                    emit_kv_field(ob, scratch, nb, "ext", "");
+                    ob_ln(ob, "\">");
+                    ob_ln(ob, "        <div class=\"lib-row\">");
+                    ob_ln(ob, "          <div class=\"lib-left\">");
+                    ob_s(ob,  "            <label class=\"bundle-chk-label\" title=\"Include in custom bundle\"><input type=\"checkbox\" class=\"bundle-chk plugin-chk\" checked data-file=\"plugins/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-name=\"");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_ln(ob, "\"></label>");
+                    ob_ln(ob, "            <img src=\"assets/atherium-studio-logo.png\" alt=\".athplugin\">");
+                    ob_ln(ob, "            <div>");
+                    ob_s(ob,  "              <span class=\"lib-name\">");
+                    emit_kv_field(ob, scratch, nb, "name", "Plugin");
+                    ob_s(ob,  "</span><span class=\"lib-meta\">(");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  ", ");
+                    ob_int(ob, nb);
+                    ob_ln(ob, " B)</span>");
+                    ob_s(ob,  "              <div class=\"lib-desc\">Extensions: <code>");
+                    emit_kv_field(ob, scratch, nb, "ext", "tool");
+                    ob_ln(ob, "</code></div>");
+                    ob_ln(ob, "            </div>");
+                    ob_ln(ob, "          </div>");
+                    ob_ln(ob, "          <div class=\"lib-actions\">");
+                    ob_s(ob,  "            <button type=\"button\" class=\"btn dim\" data-src-url=\"");
+                    ob_s(ob,  RAW_STU_BASE);
+                    ob_s(ob,  "plugins/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-local-url=\"plugins/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_ln(ob, "\">View</button>");
+                    ob_s(ob,  "            <a class=\"btn\" href=\"plugins/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-gh-dl=\"");
+                    ob_s(ob,  RAW_STU_BASE);
+                    ob_s(ob,  "plugins/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-filename=\"");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_ln(ob, "\" download>Download</a>");
+                    ob_s(ob,  "            <a class=\"btn dim\" href=\"https://github.com/Deadstillplays/AtheriumStudio/blob/main/plugins/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_ln(ob, "\">GitHub -&gt;</a>");
+                    ob_ln(ob, "          </div>");
+                    ob_ln(ob, "        </div>");
+                    ob_ln(ob, "      </div>");
+                    count += 1;
+                }
+            }
+            pos = eol + 1;
+        }
+    }
+    ob_ln(ob, "    </div>");
+    return count;
+}
+
+fn emit_themes_section(ob: int, dir_buf: int, scratch: int, scratch_cap: int, pbuf1: int, pbuf2: int) -> int {
+    let dir_len: int = dir_list("studio/themes", dir_buf, 16384);
+    let count: int = 0;
+    ob_ln(ob, "    <div id=\"themes\" class=\"subhead-row\" style=\"margin-top:40px;\">");
+    ob_ln(ob, "      <h3 class=\"subhead\">&gt;Studio Themes (.aththeme)</h3>");
+    ob_ln(ob, "      <div><a class=\"btn dim small\" href=\"bundles/atherium-themes-bundle.zip\" download=\"atherium-themes-bundle.zip\" style=\"margin-right:12px;\">Download All Themes (.zip)</a><a href=\"https://github.com/Deadstillplays/AtheriumStudio/tree/main/themes\">Browse themes/ on GitHub -&gt;</a></div>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "    <p style=\"color:#9a9a9a;margin-top:0;\">Import any <code>.aththeme</code> via <strong>Themes &rarr; + Import Theme (.aththeme)...</strong> in Atherium Studio. Auto-synced live from <code>Deadstillplays/AtheriumStudio</code>.</p>");
+    ob_ln(ob, "    <div id=\"theme-list\" class=\"lib-list\">");
+    if (dir_len > 0) {
+        let pos: int = 0;
+        while (pos < dir_len) {
+            let eol: int = pos;
+            while (eol < dir_len && load8(dir_buf + eol) != 10) { eol += 1; }
+            let nlen: int = eol - pos;
+            if (ends_with_ext(dir_buf + pos, nlen, ".aththeme")) {
+                let src_p: int = path_join_raw(pbuf1, "studio/themes/", dir_buf + pos, nlen);
+                let dst_p: int = path_join_raw(pbuf2, "website/site/themes/", dir_buf + pos, nlen);
+                let nb: int = file_read(src_p, scratch, scratch_cap);
+                if (nb >= 0) {
+                    file_write(dst_p, scratch, nb, 0);
+                    ob_s(ob,  "      <div class=\"lib-item\" data-cat=\"theme\" data-thm-file=\"");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-search=\"");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  " theme ");
+                    emit_kv_field(ob, scratch, nb, "name", "");
+                    ob_ln(ob, "\">");
+                    ob_ln(ob, "        <div class=\"lib-row\">");
+                    ob_ln(ob, "          <div class=\"lib-left\">");
+                    ob_ln(ob, "            <img src=\"assets/atherium-studio-logo.png\" alt=\".aththeme\">");
+                    ob_ln(ob, "            <div>");
+                    ob_s(ob,  "              <span class=\"lib-name\">");
+                    emit_kv_field(ob, scratch, nb, "name", "Custom Theme");
+                    ob_s(ob,  "</span><span class=\"swatches\">");
+                    ob_s(ob,  "<span class=\"sw\" style=\"background:"); emit_kv_field(ob, scratch, nb, "editor", "#0b0b0f"); ob_s(ob, "\"></span>");
+                    ob_s(ob,  "<span class=\"sw\" style=\"background:"); emit_kv_field(ob, scratch, nb, "panel",  "#17171d"); ob_s(ob, "\"></span>");
+                    ob_s(ob,  "<span class=\"sw\" style=\"background:"); emit_kv_field(ob, scratch, nb, "select", "#1e212b"); ob_s(ob, "\"></span>");
+                    ob_s(ob,  "<span class=\"sw\" style=\"background:"); emit_kv_field(ob, scratch, nb, "accent", "#7d85ad"); ob_s(ob, "\"></span>");
+                    ob_ln(ob, "</span>");
+                    ob_s(ob,  "              <div class=\"lib-desc\">");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  " &middot; ");
+                    ob_int(ob, nb);
+                    ob_ln(ob, " B</div>");
+                    ob_ln(ob, "            </div>");
+                    ob_ln(ob, "          </div>");
+                    ob_ln(ob, "          <div class=\"lib-actions\">");
+                    ob_s(ob,  "            <button type=\"button\" class=\"btn dim\" data-src-url=\"");
+                    ob_s(ob,  RAW_STU_BASE);
+                    ob_s(ob,  "themes/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-local-url=\"themes/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_ln(ob, "\">View</button>");
+                    ob_s(ob,  "            <a class=\"btn\" href=\"themes/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-gh-dl=\"");
+                    ob_s(ob,  RAW_STU_BASE);
+                    ob_s(ob,  "themes/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_s(ob,  "\" data-filename=\"");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_ln(ob, "\" download>Download</a>");
+                    ob_s(ob,  "            <a class=\"btn dim\" href=\"https://github.com/Deadstillplays/AtheriumStudio/blob/main/themes/");
+                    ob_esc_raw(ob, dir_buf + pos, nlen);
+                    ob_ln(ob, "\">GitHub -&gt;</a>");
+                    ob_ln(ob, "          </div>");
+                    ob_ln(ob, "        </div>");
+                    ob_ln(ob, "      </div>");
+                    count += 1;
+                }
+            }
+            pos = eol + 1;
+        }
+    }
+    ob_ln(ob, "    </div>");
+    return count;
+}
+
+fn emit_libraries_html(ob: int, dir_buf: int, dir_len: int, scratch: int, scratch_cap: int, pbuf1: int, pbuf2: int) -> int {
+    ob_reset(ob);
+    ob_ln(ob, "<!DOCTYPE html>");
+    ob_ln(ob, "<html lang=\"en\">");
+    emit_html_head(ob, "ATHERIUM / .ath — Libraries, Plugins &amp; Themes");
+    ob_ln(ob, "<body>");
+    ob_ln(ob, "<div class=\"page\">");
+    ob_ln(ob, "  <header class=\"libs-head\">");
+    ob_ln(ob, "    <a class=\"back-link\" href=\"index.html\">&lt;- Back to main page</a>");
+    ob_ln(ob, "    <h1 class=\"brand\">ATHERIUM / .ath</h1>");
+    ob_ln(ob, "    <hr class=\"libs-underline\">");
+    ob_ln(ob, "    <h2 class=\"center\" style=\"margin-bottom:0;\">Libraries, Plugins &amp; Themes</h2>");
+    ob_ln(ob, "  </header>");
+    ob_ln(ob, "  <hr class=\"ascii-rule\">");
+    ob_ln(ob, "  <div class=\"top-meta-bar\">");
+    ob_ln(ob, "    <div id=\"gh-sync-bar\"><span class=\"sync-dot\"></span> Syncing catalog with GitHub...</div>");
+    ob_ln(ob, "    <div style=\"display:flex;align-items:center;gap:14px;\">");
+    ob_ln(ob, "      <div><a href=\"#libs\">Libraries</a> &nbsp;|&nbsp; <a href=\"#plugins\">Plugins</a> &nbsp;|&nbsp; <a href=\"#themes\">Themes</a></div>");
+    ob_ln(ob, "      <button type=\"button\" id=\"theme-toggle-btn\" class=\"theme-btn\" title=\"Toggle theme (Auto / Dark / Light)\"><span id=\"theme-icon\">🌙</span> <span id=\"theme-label\">Auto</span></button>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "  </div>");
+    ob_ln(ob, "  <section class=\"sec\">");
+    ob_ln(ob, "    <div class=\"filter-bar\"><span>&gt;</span><input id=\"catalog-filter\" type=\"text\" placeholder=\"search plugins (luau, python, c++, rust...), libraries, or themes...\" autocomplete=\"off\"><button id=\"filter-clear\" class=\"btn dim small\" style=\"display:none;\">Clear</button></div>");
+    ob_ln(ob, "    <div class=\"cat-pills\">");
+    ob_ln(ob, "      <button type=\"button\" class=\"cat-pill active\" data-cat=\"all\">All (<span id=\"count-all\">14</span>)</button>");
+    ob_ln(ob, "      <button type=\"button\" class=\"cat-pill\" data-cat=\"plugin\">Plugins Only (<span id=\"count-plugins\">6</span>)</button>");
+    ob_ln(ob, "      <button type=\"button\" class=\"cat-pill\" data-cat=\"theme\">Themes Only (<span id=\"count-themes\">2</span>)</button>");
+    ob_ln(ob, "      <button type=\"button\" class=\"cat-pill\" data-cat=\"lib\">Libraries Only (<span id=\"count-libs\">6</span>)</button>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "    <p id=\"filter-status\" style=\"color:#888;font-size:13px;margin:-14px 0 20px;display:none;\"></p>");
+    ob_ln(ob, "    <p id=\"filter-empty\" style=\"display:none;color:#888;\">No matching files found.</p>");
+
+    ob_ln(ob, "    <div id=\"libs\" class=\"subhead-row\" style=\"margin-top:8px;\">");
+    ob_ln(ob, "      <h3 class=\"subhead\">&gt;Standard Libraries (.athlib)</h3>");
+    ob_ln(ob, "      <a href=\"https://github.com/Deadstillplays/Atherium/tree/main/lib\">Browse lib/ on GitHub -&gt;</a>");
+    ob_ln(ob, "    </div>");
+    ob_ln(ob, "    <p style=\"color:#9a9a9a;margin-top:0;\">Pure-Atherium <code>.athlib</code> modules auto-synced live from <code>Deadstillplays/Atherium</code>.</p>");
+    ob_ln(ob, "    <div id=\"lib-list\" class=\"lib-list\">");
+
+    let count: int = 0;
+    let pos: int = 0;
+    while (pos < dir_len) {
+        let eol: int = pos;
+        while (eol < dir_len && load8(dir_buf + eol) != 10) { eol += 1; }
+        let nlen: int = eol - pos;
+        if (ends_with_ext(dir_buf + pos, nlen, ".athlib")) {
+            let src_p: int = path_join_raw(pbuf1, "Atherium/lib/", dir_buf + pos, nlen);
+            let dst_p: int = path_join_raw(pbuf2, "website/site/libs/", dir_buf + pos, nlen);
+            let fn_bytes: int = file_read(src_p, scratch, scratch_cap);
+            if (fn_bytes >= 0) {
+                file_write(dst_p, scratch, fn_bytes, 0);
+                let n_fns: int = count_fns(scratch, fn_bytes);
+                ob_s(ob,  "      <div class=\"lib-item\" data-cat=\"lib\" data-lib-file=\"");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_s(ob,  "\" data-search=\"");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_s(ob,  " athlib library ");
+                emit_lib_desc(ob, scratch, fn_bytes);
+                ob_ln(ob, "\">");
+                ob_ln(ob, "        <div class=\"lib-row\">");
+                ob_ln(ob, "          <div class=\"lib-left\">");
+                ob_ln(ob, "            <img src=\"assets/Atheriumlib.png\" alt=\".athlib\">");
+                ob_ln(ob, "            <div>");
+                ob_s(ob,  "              <span class=\"lib-name\">");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_s(ob,  "</span><span class=\"lib-meta\">(");
+                ob_int(ob, n_fns);
+                ob_s(ob,  " fns, <span class=\"lib-size\">");
+                ob_int(ob, fn_bytes);
+                ob_ln(ob, " B</span>)</span>");
+                ob_s(ob,  "              <div class=\"lib-desc\">");
+                emit_lib_desc(ob, scratch, fn_bytes);
+                ob_ln(ob, "</div>");
+                ob_ln(ob, "            </div>");
+                ob_ln(ob, "          </div>");
+                ob_ln(ob, "          <div class=\"lib-actions\">");
+                ob_s(ob,  "            <button type=\"button\" class=\"btn dim\" data-src-url=\"");
+                ob_s(ob,  RAW_ATH_BASE);
+                ob_s(ob,  "lib/");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_s(ob,  "\" data-local-url=\"libs/");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_ln(ob, "\">View</button>");
+                ob_s(ob,  "            <a class=\"btn\" href=\"libs/");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_s(ob,  "\" data-gh-dl=\"");
+                ob_s(ob,  RAW_ATH_BASE);
+                ob_s(ob,  "lib/");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_s(ob,  "\" data-filename=\"");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_ln(ob, "\" download>Download</a>");
+                ob_s(ob,  "            <a class=\"btn dim\" href=\"https://github.com/Deadstillplays/Atherium/blob/main/lib/");
+                ob_esc_raw(ob, dir_buf + pos, nlen);
+                ob_ln(ob, "\">GitHub -&gt;</a>");
+                ob_ln(ob, "          </div>");
+                ob_ln(ob, "        </div>");
+                ob_ln(ob, "      </div>");
+                count += 1;
+            }
+        }
+        pos = eol + 1;
+    }
+    ob_ln(ob, "    </div>");
+
+    // Emit Studio Plugins & Custom Themes sections
+    emit_plugins_section(ob, dir_buf, scratch, scratch_cap, pbuf1, pbuf2);
+    emit_themes_section(ob, dir_buf, scratch, scratch_cap, pbuf1, pbuf2);
+
+    ob_ln(ob, "    <h3 class=\"subhead\" style=\"margin-bottom:14px;\">&gt;How to add more libs, plugins &amp; themes</h3>");
+    ob_ln(ob, "    <pre class=\"codebox\" data-copy=\"raw\">1. Libraries (.athlib): drop into lib/ (or pass --lib /path/to/libs) and import with `use mylib;`.");
+    ob_ln(ob, "2. Plugins (.athplugin): in Atherium Studio open Plugins -&gt; + Import Plugin, or drop into .atherium-studio/plugins/.");
+    ob_ln(ob, "3. Themes (.aththeme): in Atherium Studio open Themes -&gt; + Import Theme (.aththeme)... .");
+    ob_ln(ob, "");
+    ob_ln(ob, "Full language docs: https://github.com/Deadstillplays/Atherium/blob/main/LANGUAGE.md</pre>");
+    ob_ln(ob, "  </section>");
+    ob_ln(ob, "  <hr class=\"ascii-rule dim\">");
+    ob_ln(ob, "  <footer>");
+    ob_ln(ob, "    <div class=\"foot-left\"><img src=\"assets/atherium-logo.png\" alt=\"Atherium\"><span>ATHERIUM / .ath &mdash; Libraries, Plugins &amp; Themes</span></div>");
+    ob_ln(ob, "    <div><a href=\"https://github.com/Deadstillplays/Atherium\">Atherium</a> &nbsp;|&nbsp; <a href=\"https://github.com/Deadstillplays/AtheriumStudio\">AtheriumStudio</a></div>");
+    ob_ln(ob, "  </footer>");
+    ob_ln(ob, "</div>");
+    ob_ln(ob, "<script src=\"github-sync.js\" defer></script>");
+    ob_ln(ob, "</body>");
+    ob_ln(ob, "</html>");
+    return count;
+}
+
+fn emit_license_html(ob: int, scratch: int, scratch_cap: int) {
+    let n: int = file_read("Atherium/LICENSE", scratch, scratch_cap);
+    ob_reset(ob);
+    ob_ln(ob, "<!DOCTYPE html>");
+    ob_ln(ob, "<html lang=\"en\">");
+    emit_html_head(ob, "ATHERIUM / .ath — TOS / Licence");
+    ob_ln(ob, "<body>");
+    ob_ln(ob, "<div class=\"page\">");
+    ob_ln(ob, "  <header class=\"libs-head\">");
+    ob_ln(ob, "    <a class=\"back-link\" href=\"index.html\">&lt;- Back to main page</a>");
+    ob_ln(ob, "    <h1 class=\"brand\">ATHERIUM / .ath</h1>");
+    ob_ln(ob, "    <hr class=\"libs-underline\">");
+    ob_ln(ob, "    <h2 class=\"center\" style=\"margin-bottom:0;\">TOS / Licence</h2>");
+    ob_ln(ob, "  </header>");
+    ob_ln(ob, "  <hr class=\"ascii-rule\">");
+    ob_ln(ob, "  <div class=\"top-meta-bar\">");
+    ob_ln(ob, "    <div id=\"gh-sync-bar\"><span class=\"sync-dot\"></span> Synced with Deadstillplays/Atherium LICENSE</div>");
+    ob_ln(ob, "    <div><a href=\"https://github.com/Deadstillplays/Atherium/blob/main/LICENSE\">View raw on GitHub -&gt;</a></div>");
+    ob_ln(ob, "  </div>");
+    ob_ln(ob, "  <section class=\"sec\">");
+    ob_s(ob,  "    <pre id=\"license-text\" class=\"codebox\" style=\"white-space:pre-wrap;\">");
+    if (n > 0) {
+        ob_esc_raw(ob, scratch, n);
+    } else {
+        ob_s(ob, "See https://github.com/Deadstillplays/Atherium/blob/main/LICENSE");
+    }
+    ob_ln(ob, "</pre>");
+    ob_ln(ob, "  </section>");
+    ob_ln(ob, "  <hr class=\"ascii-rule dim\">");
+    ob_ln(ob, "  <footer>");
+    ob_ln(ob, "    <div class=\"foot-left\"><img src=\"assets/atherium-logo.png\" alt=\"Atherium\"><span>ATHERIUM / .ath &mdash; Built in Atherium</span></div>");
+    ob_ln(ob, "    <div><a href=\"https://github.com/Deadstillplays/Atherium\">Atherium</a> &nbsp;|&nbsp; <a href=\"https://github.com/Deadstillplays/AtheriumStudio\">AtheriumStudio</a></div>");
+    ob_ln(ob, "  </footer>");
+    ob_ln(ob, "</div>");
+    ob_ln(ob, "<script src=\"github-sync.js\" defer></script>");
+    ob_ln(ob, "</body>");
+    ob_ln(ob, "</html>");
+}
+
+fn main() -> int {
+    let h: int = heap_init(heap_base(), 16777216); // 16 MiB guest heap
+    let ob: int = ob_new(h, 524288);
+    let dir_buf: int = heap_alloc(h, 16384);
+    let scratch_cap: int = 8388608; // 8 MiB (handles large GIFs & assets cleanly)
+    let scratch: int = heap_alloc(h, scratch_cap);
+    let pbuf1: int = heap_alloc(h, 4096);
+    let pbuf2: int = heap_alloc(h, 4096);
+
+    dir_make("website/site");
+    dir_make("website/site/assets");
+    dir_make("website/site/libs");
+    dir_make("website/site/plugins");
+    dir_make("website/site/themes");
+
+    // Copy PNG/GIF assets & live GitHub auto-sync script directly in Atherium
+    copy_file_ath("design/assets/atherium-logo.png",        "website/site/assets/atherium-logo.png",        scratch, scratch_cap);
+    copy_file_ath("design/assets/atherium-studio-logo.png", "website/site/assets/atherium-studio-logo.png", scratch, scratch_cap);
+    copy_file_ath("design/assets/cross.png",                "website/site/assets/cross.png",                scratch, scratch_cap);
+    copy_file_ath("design/assets/Atheriumlib.png",          "website/site/assets/Atheriumlib.png",          scratch, scratch_cap);
+    copy_file_ath("design/assets/Atheriumasm.png",          "website/site/assets/Atheriumasm.png",          scratch, scratch_cap);
+    copy_file_ath("design/assets/Atheriumbin.png",          "website/site/assets/Atheriumbin.png",          scratch, scratch_cap);
+    copy_file_ath("website/assets/loading_animation.gif",   "website/site/assets/loading_animation.gif",    scratch, scratch_cap);
+    copy_file_ath("website/github-sync.js",                 "website/site/github-sync.js",                  scratch, scratch_cap);
+
+    // Emit stylesheet
+    emit_css(ob);
+    let n_css: int = ob_write_file(ob, "website/site/style.css");
+
+    // Discover lib/*.athlib dynamically
+    let dir_len: int = dir_list("Atherium/lib", dir_buf, 16384);
+    if (dir_len < 0) {
+        println("error: cannot list Atherium/lib (run from project root with --allow-io)");
+        return 1;
+    }
+
+    // Emit index.html
+    emit_index_html(ob, dir_buf, dir_len);
+    let n_idx: int = ob_write_file(ob, "website/site/index.html");
+
+    // Emit libraries.html (Libraries + Studio Plugins + Custom Themes)
+    let n_libs: int = emit_libraries_html(ob, dir_buf, dir_len, scratch, scratch_cap, pbuf1, pbuf2);
+    let n_libhtml: int = ob_write_file(ob, "website/site/libraries.html");
+
+    // Emit license.html from Atherium/LICENSE
+    emit_license_html(ob, scratch, scratch_cap);
+    let n_lic: int = ob_write_file(ob, "website/site/license.html");
+
+    print("Atherium site built: style.css="); print_int(n_css);
+    print("B, index.html="); print_int(n_idx);
+    print("B, libraries.html="); print_int(n_libhtml);
+    print("B ("); print_int(n_libs);
+    print(" libs), license.html="); print_int(n_lic);
+    println("B");
+    return 0;
+}

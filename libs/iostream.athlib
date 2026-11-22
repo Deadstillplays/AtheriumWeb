@@ -1,0 +1,100 @@
+// iostream.athlib — I/O helpers written in Atherium itself.
+// The raw output builtins (print, println, print_int, print_float,
+// print_char, newline, read_int) are compiler builtins that lower to
+// SYSCALL opcodes; this library adds the sugar on top.
+
+fn banner(s: str) {
+    print("=== ");
+    print(s);
+    println(" ===");
+}
+
+fn print_kv(k: str, v: int) {
+    print(k);
+    print(": ");
+    print_int(v);
+    newline();
+}
+
+fn print_kv_f(k: str, v: float) {
+    print(k);
+    print(": ");
+    print_float(v);
+    newline();
+}
+
+fn println_int(v: int) {
+    print_int(v);
+    newline();
+}
+
+fn println_float(v: float) {
+    print_float(v);
+    newline();
+}
+
+fn print_bool(b: int) {
+    if (b != 0) {
+        print("true");
+    } else {
+        print("false");
+    }
+}
+
+fn print_hex(v: int) {
+    print("0x");
+    if (v == 0) {
+        print_char(48);
+        return;
+    }
+    let sh: int = 60;
+    let started: int = 0;
+    while (sh >= 0) {
+        let nib: int = (v >>> sh) & 15;
+        if (nib != 0 || started != 0 || sh == 0) {
+            started = 1;
+            if (nib < 10) {
+                print_char(48 + nib);
+            } else {
+                print_char(87 + nib);
+            }
+        }
+        sh = sh - 4;
+    }
+}
+
+fn print_padded_int(v: int, width: int) {
+    let digits: int = 1;
+    let tmp: int = v;
+    if (tmp < 0) {
+        digits = 2;
+        tmp = 0 - (tmp / 10);
+    } else {
+        tmp = tmp / 10;
+    }
+    while (tmp > 0) {
+        digits = digits + 1;
+        tmp = tmp / 10;
+    }
+    let pad: int = width - digits;
+    while (pad > 0) {
+        print_char(32);
+        pad = pad - 1;
+    }
+    print_int(v);
+}
+
+fn read_line_buf(dst: int, max_len: int) -> int {
+    let n: int = 0;
+    while (n < max_len) {
+        let c: int = read_char();
+        if (c < 0 || c == 10) {
+            return n;
+        }
+        if (c != 13) {
+            store8(dst + n, c);
+            n = n + 1;
+        }
+    }
+    return n;
+}

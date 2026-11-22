@@ -1,0 +1,29 @@
+# Atherium Studio Plugin — Python 3
+name=Python
+ext=.py
+comment=#
+run=python3 "{file}"
+tool=Syntax Check|python3 -m py_compile "{file}"
+keywords=def,class,if,elif,else,for,while,in,return,import,from,as,with,try,except,finally,raise,pass,break,continue,yield,lambda,and,or,not,is,True,False,None,async,await,global,nonlocal
+types=int,float,str,bool,list,dict,tuple,set,bytes,object,Any,Optional
+builtins=print,len,range,enumerate,zip,map,filter,sorted,sum,min,max,abs,round,open,input,type,isinstance,hasattr,getattr,setattr,id,repr,chr,ord,super
+complete=print("|")
+complete=print(f"|")
+complete=def |():
+complete=class |:
+complete=if |:
+complete=elif |:
+complete=for i in range(|):
+complete=for item in |:
+complete=while |:
+complete=return |
+complete=import |
+complete=from | import 
+complete=with open("|", "r") as f:
+complete=len(|)
+complete=range(|)
+complete=enumerate(|)
+complete=isinstance(|, )
+complete=try:
+complete=except Exception as e:
+complete=if __name__ == "__main__":

@@ -1,0 +1,16 @@
+# Atherium Studio custom theme (.aththeme)
+# Import via Themes -> "+ Import custom theme (.aththeme)" (or press I in Themes)
+name=Crimson Noir
+bg=#121012
+title=#0D0B0D
+panel=#191518
+panel_deep=#141013
+panel_hover=#221B20
+editor=#0B090B
+border=#2B2228
+select=#291C23
+select_border=#4A313E
+accent=#B8627C
+cur_line=#181216
+banner=#26161F
+text=#E8DFE3

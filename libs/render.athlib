@@ -1,0 +1,24 @@
+// render.athlib — 3D rendering sugar.
+// The entire rasterizer core (init_screen, clear_screen, draw_pixel,
+// draw_line, flush, width, height) runs as machine code in the runtime;
+// these builtins lower to SYSCALL opcodes. This library adds small
+// Atherium-level helpers built on top of them.
+
+fn crosshair(fb: int, cx: int, cy: int, span: int, color: int) {
+    draw_line(fb, cx - span, cy, cx + span, cy, color);
+    draw_line(fb, cx, cy - span, cx, cy + span, color);
+}
+
+fn border(fb: int, w: int, h: int, color: int) {
+    draw_line(fb, 0, 0, w - 1, 0, color);
+    draw_line(fb, w - 1, 0, w - 1, h - 1, color);
+    draw_line(fb, w - 1, h - 1, 0, h - 1, color);
+    draw_line(fb, 0, h - 1, 0, 0, color);
+}
+
+fn box2d(fb: int, x: int, y: int, w: int, h: int, color: int) {
+    draw_line(fb, x, y, x + w, y, color);
+    draw_line(fb, x + w, y, x + w, y + h, color);
+    draw_line(fb, x + w, y + h, x, y + h, color);
+    draw_line(fb, x, y + h, x, y, color);
+}

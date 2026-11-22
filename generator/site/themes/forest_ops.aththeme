@@ -1,0 +1,15 @@
+# Atherium Studio custom theme (.aththeme)
+name=Forest Ops
+bg=#0E1310
+title=#0A0E0C
+panel=#141B17
+panel_deep=#101613
+panel_hover=#1B2620
+editor=#080C0A
+border=#213027
+select=#1B2B22
+select_border=#33503F
+accent=#68A87E
+cur_line=#121A15
+banner=#16291E
+text=#DCE8E0

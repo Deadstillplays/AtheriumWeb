@@ -1,0 +1,43 @@
+# Atherium Studio Plugin — Luau / Roblox Luau
+name=Luau
+ext=.luau,.lua
+comment=--
+run=luau "{file}"
+tool=Analyze|luau-analyze "{file}"
+keywords=local,function,if,then,else,elseif,end,for,while,do,return,true,false,nil,and,or,not,in,repeat,until,break,continue,type,export
+types=number,string,boolean,any,void,never,unknown,table,vector,thread,buffer,Instance,Vector3,CFrame,Color3,UDim2,Part,Player
+builtins=print,warn,error,assert,pcall,xpcall,pairs,ipairs,next,typeof,type,tostring,tonumber,require,select,unpack,rawget,rawset,setmetatable,getmetatable,task,game,workspace,script,math,string,table,bit32,coroutine,os,utf8,Instance,Vector3,CFrame,Color3,UDim2
+complete=print("|")
+complete=warn("|")
+complete=local | = 
+complete=function |()
+complete=local function |()
+complete=if | then
+complete=elseif | then
+complete=for i = 1, | do
+complete=for k, v in pairs(|) do
+complete=for i, v in ipairs(|) do
+complete=while | do
+complete=return |
+complete=task.wait(|)
+complete=task.spawn(function() | end)
+complete=task.defer(|)
+complete=task.delay(|, function() end)
+complete=game:GetService("|")
+complete=Instance.new("|")
+complete=Vector3.new(|, 0, 0)
+complete=CFrame.new(|, 0, 0)
+complete=Color3.fromRGB(|, 0, 0)
+complete=UDim2.fromScale(|, 0)
+complete=string.format("|", )
+complete=string.sub(|, 1, )
+complete=table.insert(|, )
+complete=table.find(|, )
+complete=math.clamp(|, 0, 1)
+complete=math.floor(|)
+complete=typeof(|)
+complete=tostring(|)
+complete=tonumber(|)
+complete=require(|)
+complete=pcall(function() | end)
+complete=export type | = {}

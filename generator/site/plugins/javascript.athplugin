@@ -1,0 +1,28 @@
+# Atherium Studio Plugin — JavaScript / TypeScript
+name=JavaScript
+ext=.js,.ts,.mjs,.cjs,.jsx,.tsx
+comment=//
+run=node "{file}"
+tool=Syntax Check|node --check "{file}"
+keywords=const,let,var,function,async,await,return,if,else,for,while,do,switch,case,default,break,continue,try,catch,finally,throw,new,class,extends,super,this,import,export,from,typeof,instanceof,in,of,true,false,null,undefined,interface,type
+types=number,string,boolean,any,void,unknown,never,object,Array,Promise,Map,Set,Record
+builtins=console,Math,JSON,Object,Array,String,Number,Date,RegExp,Promise,fetch,setTimeout,setInterval,clearTimeout,parseInt,parseFloat,require,process
+complete=print("|")
+complete=console.log("|");
+complete=console.error("|");
+complete=const | = 
+complete=let | = 
+complete=function |() {
+complete=async function |() {
+complete=if (|) {
+complete=for (let i = 0; i < |; i++) {
+complete=for (const item of |) {
+complete=while (|) {
+complete=return |;
+complete=import | from "";
+complete=export function |() {
+complete=fetch("|")
+complete=JSON.stringify(|)
+complete=JSON.parse(|)
+complete=setTimeout(() => { | }, 100);
+complete=Promise.all([|])

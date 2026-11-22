@@ -1,0 +1,259 @@
+// str.athlib — dynamic heap-backed StrBuf (string builder) and string utilities
+// Built on Atherium's length-prefixed string ABI (u16 length at ptr-2, bytes at ptr)
+// and the coalescing heap allocator in alloc.athlib.  Identical on VM and native.
+
+use alloc;
+
+// StrBuf header (24 bytes):
+//   +0  buf  (raw heap pointer: u16 len at buf+0..1, bytes at buf+2..buf+2+len)
+//   +8  len  (current byte length, 0..65535)
+//   +16 cap  (maximum payload bytes without growing)
+
+fn sb_new(h: int, init_cap: int) -> int {
+    let cap: int = init_cap;
+    if (cap < 32) {
+        cap = 32;
+    }
+    if (cap > 65535) {
+        cap = 65535;
+    }
+    let sb: int = heap_alloc(h, 24);
+    if (sb == 0) {
+        return 0;
+    }
+    let buf: int = heap_alloc(h, cap + 3);
+    if (buf == 0) {
+        heap_free(h, sb);
+        return 0;
+    }
+    store8(buf, 0);
+    store8(buf + 1, 0);
+    store8(buf + 2, 0);
+    store64(sb, buf);
+    store64(sb + 8, 0);
+    store64(sb + 16, cap);
+    return sb;
+}
+
+fn sb_free(h: int, sb: int) -> int {
+    if (sb == 0) {
+        return -1;
+    }
+    let buf: int = load64(sb);
+    let r1: int = heap_free(h, buf);
+    let r2: int = heap_free(h, sb);
+    if (r1 != 0 || r2 != 0) {
+        return -1;
+    }
+    return 0;
+}
+
+fn sb_len(sb: int) -> int {
+    return load64(sb + 8);
+}
+
+// Returns a valid Atherium strptr usable directly with print/str_len/str_cmp/str_copy.
+fn sb_str(sb: int) -> int {
+    return load64(sb) + 2;
+}
+
+fn sb_clear(sb: int) {
+    let buf: int = load64(sb);
+    store8(buf, 0);
+    store8(buf + 1, 0);
+    store8(buf + 2, 0);
+    store64(sb + 8, 0);
+}
+
+fn sb_reserve(h: int, sb: int, need_cap: int) -> int {
+    if (need_cap > 65535) {
+        return 0;
+    }
+    let cap: int = load64(sb + 16);
+    if (need_cap <= cap) {
+        return 1;
+    }
+    let ncap: int = cap * 2;
+    while (ncap < need_cap) {
+        ncap = ncap * 2;
+    }
+    if (ncap > 65535) {
+        ncap = 65535;
+    }
+    let buf: int = load64(sb);
+    let nbuf: int = heap_realloc(h, buf, ncap + 3);
+    if (nbuf == 0) {
+        return 0;
+    }
+    store64(sb, nbuf);
+    store64(sb + 16, ncap);
+    return 1;
+}
+
+fn sb_push_char(h: int, sb: int, ch: int) -> int {
+    let len: int = load64(sb + 8);
+    if (len >= 65535) {
+        return 0;
+    }
+    if (sb_reserve(h, sb, len + 1) == 0) {
+        return 0;
+    }
+    let buf: int = load64(sb);
+    store8(buf + 2 + len, ch & 255);
+    let nlen: int = len + 1;
+    store8(buf + 2 + nlen, 0);
+    store8(buf, nlen & 255);
+    store8(buf + 1, (nlen >> 8) & 255);
+    store64(sb + 8, nlen);
+    return 1;
+}
+
+fn sb_append(h: int, sb: int, s: int) -> int {
+    let slen: int = str_len(s);
+    if (slen == 0) {
+        return 1;
+    }
+    let len: int = load64(sb + 8);
+    let nlen: int = len + slen;
+    if (nlen > 65535) {
+        return 0;
+    }
+    if (sb_reserve(h, sb, nlen) == 0) {
+        return 0;
+    }
+    let buf: int = load64(sb);
+    mem_copy(buf + 2 + len, s, slen);
+    store8(buf + 2 + nlen, 0);
+    store8(buf, nlen & 255);
+    store8(buf + 1, (nlen >> 8) & 255);
+    store64(sb + 8, nlen);
+    return 1;
+}
+
+fn sb_append_int(h: int, sb: int, val: int) -> int {
+    if (val == 0) {
+        return sb_push_char(h, sb, 48);
+    }
+    let n: int = val;
+    let is_min: int = 0;
+    if (n < 0) {
+        if (sb_push_char(h, sb, 45) == 0) {
+            return 0;
+        }
+        let imin: int = -9223372036854775807 - 1;
+        if (n == imin) {
+            is_min = 1;
+            n = 922337203685477580;
+        } else {
+            n = -n;
+        }
+    }
+    // Extract digits in reverse into the tail of StrBuf after reserving 24 bytes
+    let start_len: int = load64(sb + 8);
+    if (sb_reserve(h, sb, start_len + 24) == 0) {
+        return 0;
+    }
+    let buf: int = load64(sb);
+    let pos: int = start_len;
+    if (is_min != 0) {
+        store8(buf + 2 + pos, 56);
+        pos = pos + 1;
+    }
+    while (n > 0) {
+        let d: int = n % 10;
+        store8(buf + 2 + pos, 48 + d);
+        pos = pos + 1;
+        n = n / 10;
+    }
+    // Reverse digits in-place
+    let lo: int = start_len;
+    let hi: int = pos - 1;
+    while (lo < hi) {
+        let a: int = load8(buf + 2 + lo);
+        let b: int = load8(buf + 2 + hi);
+        store8(buf + 2 + lo, b);
+        store8(buf + 2 + hi, a);
+        lo = lo + 1;
+        hi = hi - 1;
+    }
+    store8(buf + 2 + pos, 0);
+    store8(buf, pos & 255);
+    store8(buf + 1, (pos >> 8) & 255);
+    store64(sb + 8, pos);
+    return 1;
+}
+
+// Standalone string helpers
+
+fn str_eq(a: int, b: int) -> int {
+    if (str_cmp(a, b) == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+fn str_starts_with(s: int, prefix: int) -> int {
+    let sl: int = str_len(s);
+    let pl: int = str_len(prefix);
+    if (pl > sl) {
+        return 0;
+    }
+    let i: int = 0;
+    while (i < pl) {
+        if (load8(s + i) != load8(prefix + i)) {
+            return 0;
+        }
+        i = i + 1;
+    }
+    return 1;
+}
+
+fn str_find_char(s: int, ch: int) -> int {
+    let sl: int = str_len(s);
+    let want: int = ch & 255;
+    let i: int = 0;
+    while (i < sl) {
+        if (load8(s + i) == want) {
+            return i;
+        }
+        i = i + 1;
+    }
+    return -1;
+}
+
+fn str_to_int(s: int) -> int {
+    let sl: int = str_len(s);
+    let i: int = 0;
+    while (i < sl) {
+        let c: int = load8(s + i);
+        if (c != 32 && c != 9 && c != 10 && c != 13) {
+            break;
+        }
+        i = i + 1;
+    }
+    let neg: int = 0;
+    if (i < sl) {
+        let c: int = load8(s + i);
+        if (c == 45) {
+            neg = 1;
+            i = i + 1;
+        } else {
+            if (c == 43) {
+                i = i + 1;
+            }
+        }
+    }
+    let acc: int = 0;
+    while (i < sl) {
+        let c: int = load8(s + i);
+        if (c < 48 || c > 57) {
+            break;
+        }
+        acc = acc * 10 + (c - 48);
+        i = i + 1;
+    }
+    if (neg != 0) {
+        return -acc;
+    }
+    return acc;
+}

@@ -1,0 +1,29 @@
+# Atherium Studio Plugin — Rust
+name=Rust
+ext=.rs
+comment=//
+run=rustc -O "{file}" -o "{file}.out" && "{file}.out"
+tool=Check|rustc --emit=metadata "{file}"
+keywords=fn,let,mut,const,static,if,else,match,for,while,loop,in,break,continue,return,struct,enum,impl,trait,type,pub,mod,use,crate,self,Self,super,as,where,async,await,move,ref,unsafe,true,false
+types=i8,i16,i32,i64,i128,isize,u8,u16,u32,u64,u128,usize,f32,f64,bool,char,str,String,Vec,Option,Result,Box,HashMap
+builtins=println,print,eprintln,format,vec,panic,assert,assert_eq,dbg,todo,Some,None,Ok,Err
+complete=println!("|");
+complete=print!("|");
+complete=eprintln!("|");
+complete=format!("|")
+complete=fn main() {
+complete=fn |() {
+complete=let mut | = 
+complete=let | = 
+complete=if | {
+complete=for i in 0..| {
+complete=while | {
+complete=match | {
+complete=struct | {
+complete=enum | {
+complete=impl | {
+complete=return |;
+complete=Vec::new()
+complete=String::from("|")
+complete=Some(|)
+complete=Ok(|)

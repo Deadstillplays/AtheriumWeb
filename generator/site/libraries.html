@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>ATHERIUM / .ath — Libraries, Plugins &amp; Themes</title>
+  <link rel="icon" type="image/png" href="assets/atherium-logo.png">
+  <script>
+    (function(){try{var t=localStorage.getItem('ath_theme')||'auto';var d=t==='dark'||(t==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',t);document.documentElement.className=d?'theme-dark':'theme-light';document.documentElement.style.colorScheme=d?'dark':'light';document.documentElement.style.backgroundColor=d?'#0b0b0e':'#f4f5f7';}catch(_){}})();
+  </script>
+  <style>
+    html,body{margin:0;background-color:#0b0b0e;color:#e2e2e8;color-scheme:dark;}
+    @media (prefers-color-scheme: light){html:not([data-theme="dark"]),html:not([data-theme="dark"]) body{background-color:#f4f5f7;color:#24292f;color-scheme:light;}}
+    html[data-theme="dark"],html[data-theme="dark"] body{background-color:#0b0b0e !important;color:#e2e2e8 !important;color-scheme:dark !important;}
+    html[data-theme="light"],html[data-theme="light"] body{background-color:#f4f5f7 !important;color:#24292f !important;color-scheme:light !important;}
+  </style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <header class="libs-head">
+    <a class="back-link" href="index.html">&lt;- Back to main page</a>
+    <h1 class="brand">ATHERIUM / .ath</h1>
+    <hr class="libs-underline">
+    <h2 class="center" style="margin-bottom:0;">Libraries, Plugins &amp; Themes</h2>
+  </header>
+  <hr class="ascii-rule">
+  <div class="top-meta-bar">
+    <div id="gh-sync-bar"><span class="sync-dot"></span> Syncing catalog with GitHub...</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div><a href="#libs">Libraries</a> &nbsp;|&nbsp; <a href="#plugins">Plugins</a> &nbsp;|&nbsp; <a href="#themes">Themes</a></div>
+      <button type="button" id="theme-toggle-btn" class="theme-btn" title="Toggle theme (Auto / Dark / Light)"><span id="theme-icon">🌙</span> <span id="theme-label">Auto</span></button>
+    </div>
+  </div>
+  <section class="sec">
+    <div class="filter-bar"><span>&gt;</span><input id="catalog-filter" type="text" placeholder="search plugins (luau, python, c++, rust...), libraries, or themes..." autocomplete="off"><button id="filter-clear" class="btn dim small" style="display:none;">Clear</button></div>
+    <div class="cat-pills">
+      <button type="button" class="cat-pill active" data-cat="all">All (<span id="count-all">14</span>)</button>
+      <button type="button" class="cat-pill" data-cat="plugin">Plugins Only (<span id="count-plugins">6</span>)</button>
+      <button type="button" class="cat-pill" data-cat="theme">Themes Only (<span id="count-themes">2</span>)</button>
+      <button type="button" class="cat-pill" data-cat="lib">Libraries Only (<span id="count-libs">6</span>)</button>
+    </div>
+    <p id="filter-status" style="color:#888;font-size:13px;margin:-14px 0 20px;display:none;"></p>
+    <p id="filter-empty" style="display:none;color:#888;">No matching files found.</p>
+    <div id="libs" class="subhead-row" style="margin-top:8px;">
+      <h3 class="subhead">&gt;Standard Libraries (.athlib)</h3>
+      <a href="https://github.com/Deadstillplays/Atherium/tree/main/lib">Browse lib/ on GitHub -&gt;</a>
+    </div>
+    <p style="color:#9a9a9a;margin-top:0;">Pure-Atherium <code>.athlib</code> modules auto-synced live from <code>Deadstillplays/Atherium</code>.</p>
+    <div id="lib-list" class="lib-list">
+      <div class="lib-item" data-cat="lib" data-lib-file="algo.athlib" data-search="algo.athlib athlib library scalable sorting, binary search, and 64-bit hashing over guest memory">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/Atheriumlib.png" alt=".athlib">
+            <div>
+              <span class="lib-name">algo.athlib</span><span class="lib-meta">(3 fns, <span class="lib-size">2526 B</span>)</span>
+              <div class="lib-desc">scalable sorting, binary search, and 64-bit hashing over guest memory</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/algo.athlib" data-local-url="libs/algo.athlib">View</button>
+            <a class="btn" href="libs/algo.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/algo.athlib" data-filename="algo.athlib" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/Atherium/blob/main/lib/algo.athlib">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="lib" data-lib-file="alloc.athlib" data-search="alloc.athlib athlib library scalable arena allocator, dynamic IntVec, and open-addressing IntMap">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/Atheriumlib.png" alt=".athlib">
+            <div>
+              <span class="lib-name">alloc.athlib</span><span class="lib-meta">(21 fns, <span class="lib-size">14730 B</span>)</span>
+              <div class="lib-desc">scalable arena allocator, dynamic IntVec, and open-addressing IntMap</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/alloc.athlib" data-local-url="libs/alloc.athlib">View</button>
+            <a class="btn" href="libs/alloc.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/alloc.athlib" data-filename="alloc.athlib" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/Atherium/blob/main/lib/alloc.athlib">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="lib" data-lib-file="iostream.athlib" data-search="iostream.athlib athlib library I/O helpers written in Atherium itself.">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/Atheriumlib.png" alt=".athlib">
+            <div>
+              <span class="lib-name">iostream.athlib</span><span class="lib-meta">(9 fns, <span class="lib-size">1960 B</span>)</span>
+              <div class="lib-desc">I/O helpers written in Atherium itself.</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/iostream.athlib" data-local-url="libs/iostream.athlib">View</button>
+            <a class="btn" href="libs/iostream.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/iostream.athlib" data-filename="iostream.athlib" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/Atherium/blob/main/lib/iostream.athlib">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="lib" data-lib-file="math.athlib" data-search="math.athlib athlib library integer math helpers written in Atherium.">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/Atheriumlib.png" alt=".athlib">
+            <div>
+              <span class="lib-name">math.athlib</span><span class="lib-meta">(16 fns, <span class="lib-size">3082 B</span>)</span>
+              <div class="lib-desc">integer math helpers written in Atherium.</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/math.athlib" data-local-url="libs/math.athlib">View</button>
+            <a class="btn" href="libs/math.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/math.athlib" data-filename="math.athlib" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/Atherium/blob/main/lib/math.athlib">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="lib" data-lib-file="render.athlib" data-search="render.athlib athlib library 3D rendering sugar.">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/Atheriumlib.png" alt=".athlib">
+            <div>
+              <span class="lib-name">render.athlib</span><span class="lib-meta">(3 fns, <span class="lib-size">967 B</span>)</span>
+              <div class="lib-desc">3D rendering sugar.</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/render.athlib" data-local-url="libs/render.athlib">View</button>
+            <a class="btn" href="libs/render.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/render.athlib" data-filename="render.athlib" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/Atherium/blob/main/lib/render.athlib">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="lib" data-lib-file="str.athlib" data-search="str.athlib athlib library dynamic heap-backed StrBuf (string builder) and string utilities">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/Atheriumlib.png" alt=".athlib">
+            <div>
+              <span class="lib-name">str.athlib</span><span class="lib-meta">(13 fns, <span class="lib-size">5934 B</span>)</span>
+              <div class="lib-desc">dynamic heap-backed StrBuf (string builder) and string utilities</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/str.athlib" data-local-url="libs/str.athlib">View</button>
+            <a class="btn" href="libs/str.athlib" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/Atherium/main/lib/str.athlib" data-filename="str.athlib" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/Atherium/blob/main/lib/str.athlib">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="plugins" class="subhead-row" style="margin-top:40px;">
+      <h3 class="subhead">&gt;Studio Plugins (.athplugin)</h3>
+      <a href="https://github.com/Deadstillplays/AtheriumStudio/tree/main/plugins">Browse plugins/ on GitHub -&gt;</a>
+    </div>
+    <p style="color:#9a9a9a;margin-top:0;">Import any <code>.athplugin</code> via <strong>Plugins &rarr; + Import Plugin</strong> or drop it directly into <code>.atherium-studio/plugins/</code>. Auto-synced live from <code>Deadstillplays/AtheriumStudio</code>.</p>
+    <div class="bundle-box">
+      <div class="bundle-head">
+        <div>
+          <h4 class="bundle-title">&gt;Bundle Install: Atherium Studio Plugins</h4>
+          <p class="bundle-sub">Install all language packs in one step, or select specific plugins below to download a custom ZIP bundle.</p>
+        </div>
+        <div class="bundle-main-btns">
+          <a class="btn rec" href="bundles/atherium-plugins-bundle.zip" download="atherium-plugins-bundle.zip" id="btn-dl-all-plugins">Download All Plugins (.zip)</a>
+          <button type="button" class="btn" id="btn-dl-selected-plugins">Download Selected (<span id="sel-plugin-count">6</span>) as .zip</button>
+          <a class="btn dim" href="bundles/atherium-studio-full-pack.zip" download="atherium-studio-full-pack.zip">Full Studio Pack</a>
+        </div>
+      </div>
+      <div class="bundle-select-bar">
+        <span>Selection:</span>
+        <button type="button" class="btn dim small" id="btn-select-all-plugins">Select All</button>
+        <button type="button" class="btn dim small" id="btn-deselect-all-plugins">Deselect All</button>
+        <span id="bundle-zip-status" style="font-size:12px;color:#888;margin-left:auto;"></span>
+      </div>
+      <div class="bundle-install-guide">
+        <div class="guide-tabs">
+          <span class="guide-tab active" data-tab="tab-term-linux">Linux / macOS Terminal</span>
+          <span class="guide-tab" data-tab="tab-term-win">Windows PowerShell</span>
+          <span class="guide-tab" data-tab="tab-studio-ui">Studio GUI Import</span>
+        </div>
+        <div id="tab-term-linux" class="guide-pane active">
+          <pre class="codebox" data-copy="sh">mkdir -p ~/.atherium-studio/plugins &amp;&amp; curl -fsSL https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/bundles/atherium-plugins-bundle.zip -o /tmp/plg.zip &amp;&amp; unzip -o /tmp/plg.zip -d ~/.atherium-studio/plugins &amp;&amp; rm /tmp/plg.zip</pre>
+        </div>
+        <div id="tab-term-win" class="guide-pane" style="display:none;">
+          <pre class="codebox" data-copy="powershell">New-Item -ItemType Directory -Force "$HOME\.atherium-studio\plugins"; Invoke-WebRequest -Uri "https://github.com/Deadstillplays/AtheriumStudio/raw/main/bundles/atherium-plugins-bundle.zip" -OutFile "$env:TEMP\plg.zip"; Expand-Archive -Force "$env:TEMP\plg.zip" "$HOME\.atherium-studio\plugins"; Remove-Item "$env:TEMP\plg.zip"</pre>
+        </div>
+        <div id="tab-studio-ui" class="guide-pane" style="display:none;">
+          <pre class="codebox" data-copy="raw">1. Extract the downloaded ZIP bundle.
+2. In Atherium Studio: Click 'Plugins' in the top bar -&gt; '+ Import Plugin' (or drag .athplugin files into Plugins -&gt; Storage / Open Folder).
+3. Click 'Reload' in the Plugins menu to activate autocomplete and runner tools.</pre>
+        </div>
+      </div>
+    </div>
+    <div id="plugin-list" class="lib-list">
+      <div class="lib-item" data-cat="plugin" data-plg-file="luau.athplugin" data-search="luau.athplugin plugin Luau .luau,.lua">
+        <div class="lib-row">
+          <div class="lib-left">
+            <label class="bundle-chk-label" title="Include in custom bundle"><input type="checkbox" class="bundle-chk plugin-chk" checked data-file="plugins/luau.athplugin" data-name="luau.athplugin"></label>
+            <img src="assets/atherium-studio-logo.png" alt=".athplugin">
+            <div>
+              <span class="lib-name">Luau</span><span class="lib-meta">(luau.athplugin, 1550 B)</span>
+              <div class="lib-desc">Extensions: <code>.luau,.lua</code></div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/luau.athplugin" data-local-url="plugins/luau.athplugin">View</button>
+            <a class="btn" href="plugins/luau.athplugin" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/luau.athplugin" data-filename="luau.athplugin" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/plugins/luau.athplugin">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="plugin" data-plg-file="python.athplugin" data-search="python.athplugin plugin Python .py">
+        <div class="lib-row">
+          <div class="lib-left">
+            <label class="bundle-chk-label" title="Include in custom bundle"><input type="checkbox" class="bundle-chk plugin-chk" checked data-file="plugins/python.athplugin" data-name="python.athplugin"></label>
+            <img src="assets/atherium-studio-logo.png" alt=".athplugin">
+            <div>
+              <span class="lib-name">Python</span><span class="lib-meta">(python.athplugin, 986 B)</span>
+              <div class="lib-desc">Extensions: <code>.py</code></div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/python.athplugin" data-local-url="plugins/python.athplugin">View</button>
+            <a class="btn" href="plugins/python.athplugin" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/python.athplugin" data-filename="python.athplugin" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/plugins/python.athplugin">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="plugin" data-plg-file="c_cpp.athplugin" data-search="c_cpp.athplugin plugin C / C++ .c,.h,.cpp,.hpp,.cc">
+        <div class="lib-row">
+          <div class="lib-left">
+            <label class="bundle-chk-label" title="Include in custom bundle"><input type="checkbox" class="bundle-chk plugin-chk" checked data-file="plugins/c_cpp.athplugin" data-name="c_cpp.athplugin"></label>
+            <img src="assets/atherium-studio-logo.png" alt=".athplugin">
+            <div>
+              <span class="lib-name">C / C++</span><span class="lib-meta">(c_cpp.athplugin, 1345 B)</span>
+              <div class="lib-desc">Extensions: <code>.c,.h,.cpp,.hpp,.cc</code></div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/c_cpp.athplugin" data-local-url="plugins/c_cpp.athplugin">View</button>
+            <a class="btn" href="plugins/c_cpp.athplugin" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/c_cpp.athplugin" data-filename="c_cpp.athplugin" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/plugins/c_cpp.athplugin">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="plugin" data-plg-file="javascript.athplugin" data-search="javascript.athplugin plugin JavaScript .js,.ts,.mjs,.cjs,.jsx,.tsx">
+        <div class="lib-row">
+          <div class="lib-left">
+            <label class="bundle-chk-label" title="Include in custom bundle"><input type="checkbox" class="bundle-chk plugin-chk" checked data-file="plugins/javascript.athplugin" data-name="javascript.athplugin"></label>
+            <img src="assets/atherium-studio-logo.png" alt=".athplugin">
+            <div>
+              <span class="lib-name">JavaScript</span><span class="lib-meta">(javascript.athplugin, 1144 B)</span>
+              <div class="lib-desc">Extensions: <code>.js,.ts,.mjs,.cjs,.jsx,.tsx</code></div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/javascript.athplugin" data-local-url="plugins/javascript.athplugin">View</button>
+            <a class="btn" href="plugins/javascript.athplugin" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/javascript.athplugin" data-filename="javascript.athplugin" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/plugins/javascript.athplugin">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="plugin" data-plg-file="rust.athplugin" data-search="rust.athplugin plugin Rust .rs">
+        <div class="lib-row">
+          <div class="lib-left">
+            <label class="bundle-chk-label" title="Include in custom bundle"><input type="checkbox" class="bundle-chk plugin-chk" checked data-file="plugins/rust.athplugin" data-name="rust.athplugin"></label>
+            <img src="assets/atherium-studio-logo.png" alt=".athplugin">
+            <div>
+              <span class="lib-name">Rust</span><span class="lib-meta">(rust.athplugin, 970 B)</span>
+              <div class="lib-desc">Extensions: <code>.rs</code></div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/rust.athplugin" data-local-url="plugins/rust.athplugin">View</button>
+            <a class="btn" href="plugins/rust.athplugin" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/rust.athplugin" data-filename="rust.athplugin" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/plugins/rust.athplugin">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="plugin" data-plg-file="git_tools.athplugin" data-search="git_tools.athplugin plugin Git Tools ">
+        <div class="lib-row">
+          <div class="lib-left">
+            <label class="bundle-chk-label" title="Include in custom bundle"><input type="checkbox" class="bundle-chk plugin-chk" checked data-file="plugins/git_tools.athplugin" data-name="git_tools.athplugin"></label>
+            <img src="assets/atherium-studio-logo.png" alt=".athplugin">
+            <div>
+              <span class="lib-name">Git Tools</span><span class="lib-meta">(git_tools.athplugin, 172 B)</span>
+              <div class="lib-desc">Extensions: <code>tool</code></div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/git_tools.athplugin" data-local-url="plugins/git_tools.athplugin">View</button>
+            <a class="btn" href="plugins/git_tools.athplugin" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/plugins/git_tools.athplugin" data-filename="git_tools.athplugin" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/plugins/git_tools.athplugin">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="themes" class="subhead-row" style="margin-top:40px;">
+      <h3 class="subhead">&gt;Studio Themes (.aththeme)</h3>
+      <div><a class="btn dim small" href="bundles/atherium-themes-bundle.zip" download="atherium-themes-bundle.zip" style="margin-right:12px;">Download All Themes (.zip)</a><a href="https://github.com/Deadstillplays/AtheriumStudio/tree/main/themes">Browse themes/ on GitHub -&gt;</a></div>
+    </div>
+    <p style="color:#9a9a9a;margin-top:0;">Import any <code>.aththeme</code> via <strong>Themes &rarr; + Import Theme (.aththeme)...</strong> in Atherium Studio. Auto-synced live from <code>Deadstillplays/AtheriumStudio</code>.</p>
+    <div id="theme-list" class="lib-list">
+      <div class="lib-item" data-cat="theme" data-thm-file="crimson_noir.aththeme" data-search="crimson_noir.aththeme theme Crimson Noir">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/atherium-studio-logo.png" alt=".aththeme">
+            <div>
+              <span class="lib-name">Crimson Noir</span><span class="swatches"><span class="sw" style="background:#0B090B"></span><span class="sw" style="background:#191518"></span><span class="sw" style="background:#291C23"></span><span class="sw" style="background:#B8627C"></span></span>
+              <div class="lib-desc">crimson_noir.aththeme &middot; 348 B</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/themes/crimson_noir.aththeme" data-local-url="themes/crimson_noir.aththeme">View</button>
+            <a class="btn" href="themes/crimson_noir.aththeme" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/themes/crimson_noir.aththeme" data-filename="crimson_noir.aththeme" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/themes/crimson_noir.aththeme">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+      <div class="lib-item" data-cat="theme" data-thm-file="forest_ops.aththeme" data-search="forest_ops.aththeme theme Forest Ops">
+        <div class="lib-row">
+          <div class="lib-left">
+            <img src="assets/atherium-studio-logo.png" alt=".aththeme">
+            <div>
+              <span class="lib-name">Forest Ops</span><span class="swatches"><span class="sw" style="background:#080C0A"></span><span class="sw" style="background:#141B17"></span><span class="sw" style="background:#1B2B22"></span><span class="sw" style="background:#68A87E"></span></span>
+              <div class="lib-desc">forest_ops.aththeme &middot; 264 B</div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <button type="button" class="btn dim" data-src-url="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/themes/forest_ops.aththeme" data-local-url="themes/forest_ops.aththeme">View</button>
+            <a class="btn" href="themes/forest_ops.aththeme" data-gh-dl="https://raw.githubusercontent.com/Deadstillplays/AtheriumStudio/main/themes/forest_ops.aththeme" data-filename="forest_ops.aththeme" download>Download</a>
+            <a class="btn dim" href="https://github.com/Deadstillplays/AtheriumStudio/blob/main/themes/forest_ops.aththeme">GitHub -&gt;</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <h3 class="subhead" style="margin-bottom:14px;">&gt;How to add more libs, plugins &amp; themes</h3>
+    <pre class="codebox" data-copy="raw">1. Libraries (.athlib): drop into lib/ (or pass --lib /path/to/libs) and import with `use mylib;`.
+2. Plugins (.athplugin): in Atherium Studio open Plugins -&gt; + Import Plugin, or drop into .atherium-studio/plugins/.
+3. Themes (.aththeme): in Atherium Studio open Themes -&gt; + Import Theme (.aththeme)... .
+
+Full language docs: https://github.com/Deadstillplays/Atherium/blob/main/LANGUAGE.md</pre>
+  </section>
+  <hr class="ascii-rule dim">
+  <footer>
+    <div class="foot-left"><img src="assets/atherium-logo.png" alt="Atherium"><span>ATHERIUM / .ath &mdash; Libraries, Plugins &amp; Themes</span></div>
+    <div><a href="https://github.com/Deadstillplays/Atherium">Atherium</a> &nbsp;|&nbsp; <a href="https://github.com/Deadstillplays/AtheriumStudio">AtheriumStudio</a></div>
+  </footer>
+</div>
+<script src="github-sync.js" defer></script>
+</body>
+</html>

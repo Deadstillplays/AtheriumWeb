@@ -1,0 +1,534 @@
+// alloc.athlib — scalable arena allocator, dynamic IntVec, and open-addressing IntMap
+// Built directly on Atherium's guest-memory primitives (heap_base, mem_size,
+// load64, store64, mem_fill64, mem_copy64).  Identical on VM and native.
+//
+// Arena header layout (24 bytes at `arena` address):
+//   +0  cur   (next free byte offset, 8-byte aligned)
+//   +8  end   (exclusive upper bound byte offset)
+//   +16 start (initial base for O(1) reset)
+
+fn arena_init(addr: int, capacity: int) -> int {
+    let start: int = (addr + 24 + 7) & (~7);
+    let end: int = addr + capacity;
+    let ms: int = mem_size();
+    let guard: int = 65536;
+    if (ms <= 262144) {
+        guard = ms / 8;
+        if (guard < 4096) {
+            guard = 4096;
+        }
+    }
+    let lim: int = ms - guard;
+    if (end > lim) {
+        end = lim;
+    }
+    if (end <= start) {
+        return 0;
+    }
+    store64(addr, start);
+    store64(addr + 8, end);
+    store64(addr + 16, start);
+    return addr;
+}
+
+fn arena_alloc(arena: int, nbytes: int) -> int {
+    if (arena == 0 || nbytes < 0) {
+        return 0;
+    }
+    let cur: int = load64(arena);
+    let end: int = load64(arena + 8);
+    if (nbytes > end - cur) {
+        return 0;
+    }
+    let sz: int = (nbytes + 7) & (~7);
+    if (sz < 8) {
+        sz = 8;
+    }
+    if (cur + sz > end || cur + sz < cur) {
+        return 0;
+    }
+    store64(arena, cur + sz);
+    return cur;
+}
+
+fn arena_reset(arena: int) {
+    store64(arena, load64(arena + 16));
+}
+
+fn arena_used(arena: int) -> int {
+    return load64(arena) - load64(arena + 16);
+}
+
+// Dynamic int64 vector (24-byte header allocated from arena):
+//   +0  data ptr
+//   +8  len
+//   +16 cap (elements)
+
+fn vec_new(arena: int, init_cap: int) -> int {
+    if (arena == 0 || init_cap > 0x10000000) {
+        return 0;
+    }
+    let cap: int = init_cap;
+    if (cap < 8) {
+        cap = 8;
+    }
+    let v: int = arena_alloc(arena, 24);
+    if (v == 0) {
+        return 0;
+    }
+    let buf: int = arena_alloc(arena, cap * 8);
+    if (buf == 0) {
+        return 0;
+    }
+    store64(v, buf);
+    store64(v + 8, 0);
+    store64(v + 16, cap);
+    return v;
+}
+
+fn vec_len(v: int) -> int {
+    return load64(v + 8);
+}
+
+fn vec_get(v: int, idx: int) -> int {
+    return load64(load64(v) + idx * 8);
+}
+
+fn vec_set(v: int, idx: int, val: int) {
+    store64(load64(v) + idx * 8, val);
+}
+
+fn vec_push(arena: int, v: int, val: int) -> int {
+    let buf: int = load64(v);
+    let len: int = load64(v + 8);
+    let cap: int = load64(v + 16);
+    if (len >= cap) {
+        let ncap: int = cap * 2;
+        let nbuf: int = arena_alloc(arena, ncap * 8);
+        if (nbuf == 0) {
+            return 0;
+        }
+        mem_copy64(nbuf, buf, len);
+        buf = nbuf;
+        store64(v, buf);
+        store64(v + 16, ncap);
+    }
+    store64(buf + len * 8, val);
+    store64(v + 8, len + 1);
+    return 1;
+}
+
+// Open-addressing int64 -> int64 hash table (power-of-two capacity).
+// Header (32 bytes):
+//   +0  keys ptr  (cap * 8 bytes; empty sentinel = 0x8000000000000000)
+//   +8  vals ptr  (cap * 8 bytes)
+//   +16 mask      (cap - 1)
+//   +24 count
+
+fn map_hash(k: int) -> int {
+    let x: int = k ^ (k >>> 30);
+    x = x * 0xBF58476D1CE4E5B9;
+    x = x ^ (x >>> 27);
+    x = x * 0x94D049BB133111EB;
+    return x ^ (x >>> 31);
+}
+
+fn map_new(arena: int, cap_pow2: int) -> int {
+    if (arena == 0 || cap_pow2 > 0x10000000) {
+        return 0;
+    }
+    let cap: int = 16;
+    while (cap < cap_pow2) {
+        cap = cap * 2;
+    }
+    let m: int = arena_alloc(arena, 32);
+    if (m == 0) {
+        return 0;
+    }
+    let keys: int = arena_alloc(arena, cap * 8);
+    let vals: int = arena_alloc(arena, cap * 8);
+    if (keys == 0 || vals == 0) {
+        return 0;
+    }
+    let empty: int = -9223372036854775807 - 1;
+    mem_fill64(keys, cap, empty);
+    mem_fill64(vals, cap, 0);
+    store64(m, keys);
+    store64(m + 8, vals);
+    store64(m + 16, cap - 1);
+    store64(m + 24, 0);
+    return m;
+}
+
+fn map_put(m: int, key: int, val: int) -> int {
+    let keys: int = load64(m);
+    let vals: int = load64(m + 8);
+    let mask: int = load64(m + 16);
+    let empty: int = -9223372036854775807 - 1;
+    let slot: int = map_hash(key) & mask;
+    let probes: int = 0;
+    while (probes <= mask) {
+        let k: int = load64(keys + slot * 8);
+        if (k == empty) {
+            store64(keys + slot * 8, key);
+            store64(vals + slot * 8, val);
+            store64(m + 24, load64(m + 24) + 1);
+            return 1;
+        }
+        if (k == key) {
+            store64(vals + slot * 8, val);
+            return 1;
+        }
+        slot = (slot + 1) & mask;
+        probes = probes + 1;
+    }
+    return 0;
+}
+
+fn map_get(m: int, key: int, fallback: int) -> int {
+    let keys: int = load64(m);
+    let vals: int = load64(m + 8);
+    let mask: int = load64(m + 16);
+    let empty: int = -9223372036854775807 - 1;
+    let slot: int = map_hash(key) & mask;
+    let probes: int = 0;
+    while (probes <= mask) {
+        let k: int = load64(keys + slot * 8);
+        if (k == empty) {
+            return fallback;
+        }
+        if (k == key) {
+            return load64(vals + slot * 8);
+        }
+        slot = (slot + 1) & mask;
+        probes = probes + 1;
+    }
+    return fallback;
+}
+
+// ---------------------------------------------------------------------------
+// General-purpose coalescing heap allocator with canary & double-free guards
+// ---------------------------------------------------------------------------
+// Heap header (32 bytes at `h`):
+//   +0  first       (start of first block, 8-byte aligned)
+//   +8  end         (exclusive end of block area, 8-byte aligned)
+//   +16 used_bytes  (sum of live block total sizes)
+//   +24 alloc_count (number of live blocks)
+//
+// Block layout (total >= 32, multiple of 8):
+//   +0          hdr   = total | used_bit  (1=allocated, 0=free)
+//   +8          magic = 0x415448414C4C4F43 (live) / 0x4154484652454521 (free)
+//   +16..end-9  payload (user pointer = blk + 16)
+//   +total-8    ftr   = hdr ^ 0x5A5A5A5A5A5A5A5A  (boundary tag + overrun canary)
+
+fn heap_init(addr: int, capacity: int) -> int {
+    let first: int = (addr + 32 + 7) & (~7);
+    let end: int = addr + capacity;
+    let ms: int = mem_size();
+    let guard: int = 65536;
+    if (ms <= 262144) {
+        guard = ms / 8;
+        if (guard < 4096) {
+            guard = 4096;
+        }
+    }
+    let lim: int = ms - guard;
+    if (end > lim) {
+        end = lim;
+    }
+    end = end & (~7);
+    let span: int = end - first;
+    if (span < 32) {
+        return 0;
+    }
+    store64(addr, first);
+    store64(addr + 8, end);
+    store64(addr + 16, 0);
+    store64(addr + 24, 0);
+    // Single initial free block covering [first, end)
+    let fmagic: int = 0x4154484652454521;
+    let canary: int = 0x5A5A5A5A5A5A5A5A;
+    store64(first, span);
+    store64(first + 8, fmagic);
+    store64(first + span - 8, span ^ canary);
+    return addr;
+}
+
+fn heap_alloc(h: int, nbytes: int) -> int {
+    if (h == 0 || nbytes < 0) {
+        return 0;
+    }
+    let cur: int = load64(h);
+    let end: int = load64(h + 8);
+    if (nbytes > end - cur) {
+        return 0;
+    }
+    let pay: int = (nbytes + 7) & (~7);
+    if (pay < 8) {
+        pay = 8;
+    }
+    let need: int = pay + 24;
+    if (need > end - cur) {
+        return 0;
+    }
+    let lmagic: int = 0x415448414C4C4F43;
+    let fmagic: int = 0x4154484652454521;
+    let canary: int = 0x5A5A5A5A5A5A5A5A;
+
+    while (cur < end) {
+        let hdr: int = load64(cur);
+        let bsz: int = hdr & (~7);
+        if (bsz < 32 || cur + bsz > end) {
+            return 0;
+        }
+        if ((hdr & 1) == 0 && bsz >= need) {
+            let rem: int = bsz - need;
+            let alloc_sz: int = bsz;
+            if (rem >= 32) {
+                alloc_sz = need;
+                let tail: int = cur + need;
+                store64(tail, rem);
+                store64(tail + 8, fmagic);
+                store64(tail + rem - 8, rem ^ canary);
+            }
+            let nhdr: int = alloc_sz | 1;
+            store64(cur, nhdr);
+            store64(cur + 8, lmagic);
+            store64(cur + alloc_sz - 8, nhdr ^ canary);
+            store64(h + 16, load64(h + 16) + alloc_sz);
+            store64(h + 24, load64(h + 24) + 1);
+            return cur + 16;
+        }
+        cur = cur + bsz;
+    }
+    return 0;
+}
+
+fn heap_free(h: int, ptr: int) -> int {
+    if (h == 0 || ptr == 0) {
+        return -1;
+    }
+    let first: int = load64(h);
+    let end: int = load64(h + 8);
+    if (ptr < first + 16 || ptr >= end || (ptr & 7) != 0) {
+        return -1;
+    }
+    let blk: int = ptr - 16;
+    let hdr: int = load64(blk);
+    let magic: int = load64(blk + 8);
+    let lmagic: int = 0x415448414C4C4F43;
+    let fmagic: int = 0x4154484652454521;
+    let canary: int = 0x5A5A5A5A5A5A5A5A;
+    if ((hdr & 1) == 0 || magic != lmagic) {
+        return -1;
+    }
+    let total: int = hdr & (~7);
+    if (total < 32 || blk + total > end) {
+        return -1;
+    }
+    if (load64(blk + total - 8) != (hdr ^ canary)) {
+        return -1;
+    }
+
+    store64(h + 16, load64(h + 16) - total);
+    store64(h + 24, load64(h + 24) - 1);
+
+    // Coalesce forward
+    let nxt: int = blk + total;
+    if (nxt < end) {
+        let nhdr: int = load64(nxt);
+        if ((nhdr & 1) == 0 && load64(nxt + 8) == fmagic) {
+            let nsz: int = nhdr & (~7);
+            if (nsz >= 32 && nxt + nsz <= end) {
+                total = total + nsz;
+            }
+        }
+    }
+
+    // Coalesce backward using previous block's boundary-tag footer
+    if (blk > first) {
+        let pftr: int = load64(blk - 8) ^ canary;
+        if ((pftr & 1) == 0) {
+            let psz: int = pftr & (~7);
+            let pblk: int = blk - psz;
+            if (psz >= 32 && pblk >= first && load64(pblk) == pftr && load64(pblk + 8) == fmagic) {
+                blk = pblk;
+                total = total + psz;
+            }
+        }
+    }
+
+    store64(blk, total);
+    store64(blk + 8, fmagic);
+    store64(blk + total - 8, total ^ canary);
+    return 0;
+}
+
+fn heap_realloc(h: int, ptr: int, new_bytes: int) -> int {
+    if (h == 0) {
+        return 0;
+    }
+    if (ptr == 0) {
+        return heap_alloc(h, new_bytes);
+    }
+    if (new_bytes <= 0) {
+        heap_free(h, ptr);
+        return 0;
+    }
+    let first: int = load64(h);
+    let end: int = load64(h + 8);
+    if (new_bytes > end - first) {
+        return 0;
+    }
+    if (ptr < first + 16 || ptr >= end || (ptr & 7) != 0) {
+        return 0;
+    }
+    let blk: int = ptr - 16;
+    let hdr: int = load64(blk);
+    let lmagic: int = 0x415448414C4C4F43;
+    let fmagic: int = 0x4154484652454521;
+    let canary: int = 0x5A5A5A5A5A5A5A5A;
+    if ((hdr & 1) == 0 || load64(blk + 8) != lmagic) {
+        return 0;
+    }
+    let total: int = hdr & (~7);
+    if (total < 32 || blk + total > end || load64(blk + total - 8) != (hdr ^ canary)) {
+        return 0;
+    }
+    let pay: int = (new_bytes + 7) & (~7);
+    if (pay < 8) {
+        pay = 8;
+    }
+    let need: int = pay + 24;
+
+    // Shrink or keep in place
+    if (total >= need) {
+        let rem: int = total - need;
+        if (rem >= 32) {
+            let nhdr: int = need | 1;
+            store64(blk, nhdr);
+            store64(blk + need - 8, nhdr ^ canary);
+            let tail: int = blk + need;
+            let tsz: int = rem;
+            let nxt: int = blk + total;
+            if (nxt < end) {
+                let nxh: int = load64(nxt);
+                if ((nxh & 1) == 0 && load64(nxt + 8) == fmagic) {
+                    tsz = tsz + (nxh & (~7));
+                }
+            }
+            store64(tail, tsz);
+            store64(tail + 8, fmagic);
+            store64(tail + tsz - 8, tsz ^ canary);
+            store64(h + 16, load64(h + 16) - rem);
+        }
+        return ptr;
+    }
+
+    // Try in-place forward expansion into adjacent free block
+    let nxt: int = blk + total;
+    if (nxt < end) {
+        let nxh: int = load64(nxt);
+        if ((nxh & 1) == 0 && load64(nxt + 8) == fmagic) {
+            let nsz: int = nxh & (~7);
+            let comb: int = total + nsz;
+            if (comb >= need) {
+                let rem: int = comb - need;
+                let alloc_sz: int = comb;
+                if (rem >= 32) {
+                    alloc_sz = need;
+                    let tail: int = blk + need;
+                    store64(tail, rem);
+                    store64(tail + 8, fmagic);
+                    store64(tail + rem - 8, rem ^ canary);
+                }
+                let nhdr: int = alloc_sz | 1;
+                store64(blk, nhdr);
+                store64(blk + alloc_sz - 8, nhdr ^ canary);
+                store64(h + 16, load64(h + 16) + (alloc_sz - total));
+                return ptr;
+            }
+        }
+    }
+
+    // Fallback: allocate new block, copy payload, free old block
+    let np: int = heap_alloc(h, new_bytes);
+    if (np == 0) {
+        return 0;
+    }
+    mem_copy(np, ptr, total - 24);
+    heap_free(h, ptr);
+    return np;
+}
+
+fn heap_used(h: int) -> int {
+    if (h == 0) {
+        return 0;
+    }
+    return load64(h + 16);
+}
+
+fn heap_free_bytes(h: int) -> int {
+    if (h == 0) {
+        return 0;
+    }
+    let span: int = load64(h + 8) - load64(h);
+    return span - load64(h + 16);
+}
+
+fn heap_alloc_count(h: int) -> int {
+    if (h == 0) {
+        return 0;
+    }
+    return load64(h + 24);
+}
+
+// Walk entire heap verifying every header, magic, canary, and accounting total.
+// Returns 1 if 100% intact, 0 if corrupted.
+fn heap_check(h: int) -> int {
+    if (h == 0) {
+        return 0;
+    }
+    let cur: int = load64(h);
+    let end: int = load64(h + 8);
+    let lmagic: int = 0x415448414C4C4F43;
+    let fmagic: int = 0x4154484652454521;
+    let canary: int = 0x5A5A5A5A5A5A5A5A;
+    let sum_used: int = 0;
+    let cnt_live: int = 0;
+    let prev_free: int = 0;
+    while (cur < end) {
+        let hdr: int = load64(cur);
+        let bsz: int = hdr & (~7);
+        if (bsz < 32 || cur + bsz > end) {
+            return 0;
+        }
+        let used: int = hdr & 1;
+        let expect_m: int = fmagic;
+        if (used != 0) {
+            expect_m = lmagic;
+            sum_used = sum_used + bsz;
+            cnt_live = cnt_live + 1;
+            prev_free = 0;
+        } else {
+            if (prev_free != 0) {
+                return 0;
+            }
+            prev_free = 1;
+        }
+        if (load64(cur + 8) != expect_m) {
+            return 0;
+        }
+        if (load64(cur + bsz - 8) != (hdr ^ canary)) {
+            return 0;
+        }
+        cur = cur + bsz;
+    }
+    if (cur != end) {
+        return 0;
+    }
+    if (sum_used != load64(h + 16) || cnt_live != load64(h + 24)) {
+        return 0;
+    }
+    return 1;
+}

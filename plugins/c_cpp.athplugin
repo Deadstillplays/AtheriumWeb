@@ -1,0 +1,30 @@
+# Atherium Studio Plugin — C / C++
+name=C / C++
+ext=.c,.h,.cpp,.hpp,.cc
+comment=//
+run=gcc -O2 "{file}" -o "{file}.out" && "{file}.out"
+tool=Check Warnings|gcc -fsyntax-only -Wall -Wextra "{file}"
+keywords=if,else,for,while,do,switch,case,default,break,continue,return,struct,union,enum,typedef,static,extern,const,volatile,inline,sizeof,goto,class,public,private,protected,namespace,using,template,typename,new,delete,nullptr,true,false,auto,constexpr
+types=void,char,short,int,long,float,double,signed,unsigned,bool,size_t,int8_t,int16_t,int32_t,int64_t,uint8_t,uint16_t,uint32_t,uint64_t,FILE,string,vector
+builtins=printf,fprintf,snprintf,scanf,puts,putchar,malloc,calloc,realloc,free,memcpy,memmove,memset,memcmp,strlen,strcmp,strncmp,strcpy,strncpy,fopen,fclose,fread,fwrite,exit,abort,assert,cout,cin,endl
+complete=printf("|\n");
+complete=fprintf(stderr, "|\n");
+complete=snprintf(|, sizeof(), "");
+complete=int main(int argc, char **argv) {
+complete=#include <|>
+complete=#include "|"
+complete=for (int i = 0; i < |; i++) {
+complete=while (|) {
+complete=if (|) {
+complete=return |;
+complete=struct | {
+complete=typedef struct {
+complete=sizeof(|)
+complete=malloc(|)
+complete=memcpy(|, , )
+complete=memset(|, 0, )
+complete=strlen(|)
+complete=strcmp(|, "")
+complete=std::cout << | << "\n";
+complete=std::vector<|>
+complete=std::string |

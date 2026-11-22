@@ -1,0 +1,9 @@
+# Atherium Studio Plugin — Git Tools (example custom tool plugin)
+name=Git Tools
+ext=
+comment=#
+run=
+tool=Git Status|git -C "{dir}" status -sb
+keywords=
+types=
+builtins=

@@ -1,0 +1,117 @@
+// html.athlib — pure-Atherium byte-buffer builder, HTML escaper & file copier
+use alloc;
+
+// OutBuf layout (24 bytes): [0]=data_ptr, [8]=len, [16]=cap
+fn ob_new(h: int, cap: int) -> int {
+    let hdr: int = heap_alloc(h, 24);
+    let data: int = heap_alloc(h, cap);
+    store64(hdr, data);
+    store64(hdr + 8, 0);
+    store64(hdr + 16, cap);
+    return hdr;
+}
+
+fn ob_reset(ob: int) {
+    store64(ob + 8, 0);
+}
+
+fn ob_len(ob: int) -> int {
+    return load64(ob + 8);
+}
+
+fn ob_data(ob: int) -> int {
+    return load64(ob);
+}
+
+fn ob_push(ob: int, ch: int) {
+    let n: int = load64(ob + 8);
+    let cap: int = load64(ob + 16);
+    if (n < cap) {
+        store8(load64(ob) + n, ch & 255);
+        store64(ob + 8, n + 1);
+    }
+}
+
+fn ob_raw(ob: int, src: int, count: int) {
+    if (count <= 0) { return; }
+    let n: int = load64(ob + 8);
+    let cap: int = load64(ob + 16);
+    let take: int = count;
+    if (n + take > cap) { take = cap - n; }
+    if (take <= 0) { return; }
+    mem_copy(load64(ob) + n, src, take);
+    store64(ob + 8, n + take);
+}
+
+fn ob_s(ob: int, s: str) {
+    let sl: int = str_len(s);
+    ob_raw(ob, s, sl);
+}
+
+fn ob_ln(ob: int, s: str) {
+    ob_s(ob, s);
+    ob_push(ob, 10);
+}
+
+fn ob_int(ob: int, v: int) {
+    if (v == 0) {
+        ob_push(ob, 48);
+        return;
+    }
+    let neg: int = 0;
+    let x: int = v;
+    if (x < 0) {
+        neg = 1;
+        x = -x;
+    }
+    let tmp: int[24];
+    let nd: int = 0;
+    while (x > 0) {
+        tmp[nd] = 48 + (x % 10);
+        x = x / 10;
+        nd += 1;
+    }
+    if (neg) { ob_push(ob, 45); }
+    for (let i: int = nd - 1; i >= 0; i -= 1) {
+        ob_push(ob, tmp[i]);
+    }
+}
+
+fn ob_esc_raw(ob: int, src: int, count: int) {
+    for (let i: int = 0; i < count; i += 1) {
+        let c: int = load8(src + i);
+        if (c == 38) {
+            ob_s(ob, "&amp;");
+        } else if (c == 60) {
+            ob_s(ob, "&lt;");
+        } else if (c == 62) {
+            ob_s(ob, "&gt;");
+        } else if (c == 34) {
+            ob_s(ob, "&quot;");
+        } else {
+            ob_push(ob, c);
+        }
+    }
+}
+
+fn ob_write_file(ob: int, path: str) -> int {
+    return file_write(path, load64(ob), load64(ob + 8), 0);
+}
+
+// Build a length-prefixed strptr at dst+2 by concatenating prefix + raw bytes[0..n]
+fn path_join_raw(dst: int, prefix: str, name_ptr: int, name_len: int) -> int {
+    let pl: int = str_len(prefix);
+    let tot: int = pl + name_len;
+    store8(dst, tot & 255);
+    store8(dst + 1, (tot >> 8) & 255);
+    if (pl > 0) { mem_copy(dst + 2, prefix, pl); }
+    if (name_len > 0) { mem_copy(dst + 2 + pl, name_ptr, name_len); }
+    return dst + 2;
+}
+
+// Copy any binary or text file directly in Atherium (up to scratch_cap bytes)
+fn copy_file_ath(src_path: str, dst_path: str, scratch: int, scratch_cap: int) -> int {
+    let n: int = file_read(src_path, scratch, scratch_cap);
+    if (n < 0) { return -1; }
+    return file_write(dst_path, scratch, n, 0);
+}
